@@ -3,16 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
-<title>ImkerApp</title>
-<meta name="theme-color" content="#FFC107">
-<meta name="description" content="Bijhouden van bijenvolken, inspecties en agenda — gemaakt door een imker voor imkers.">
-<link rel="manifest" href="manifest.json">
-<link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="ImkerApp">
-<meta name="mobile-web-app-capable" content="yes">
+<title>Mijn Bijenvolken</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
@@ -818,6 +809,7 @@
       </div>
       <p class="kaart-hint">De positie op de kaart pas je aan door terug te gaan naar het volk en op de kaart te tikken.</p>
       <button class="knop-primair" onclick="volkWijzigingenOpslaan()">Wijzigingen opslaan</button>
+      <button class="verwijder-link" onclick="volkVerwijderen()" style="display:block; text-align:center; width:100%; margin-top:16px;">Volk verwijderen</button>
     </div>
   </div>
 
@@ -879,7 +871,6 @@
       </div>
 
       <button class="knop-secundair" onclick="printVolkRapport()" style="margin-top:8px;">🖨️ Rapport printen</button>
-      <button class="verwijder-link" onclick="volkVerwijderen()">Volk verwijderen</button>
     </div>
     <div class="fab">
       <button class="knop-primair" onclick="toonConfiguratiePopup()">+ Nieuwe inspectie</button>
@@ -2180,6 +2171,14 @@
     return 'goed';
   }
 
+  // Sorteert volken op naam, waarbij getallen binnen de naam natuurlijk oplopen
+  // (dus "Kast 2" komt voor "Kast 10", niet erna zoals bij een gewone tekstsortering)
+  function sorteerVolkenNatuurlijk(lijst){
+    return [...lijst].sort((a, b) =>
+      a.naam.localeCompare(b.naam, undefined, { numeric: true, sensitivity: 'base' })
+    );
+  }
+
   function renderOverzicht(){
     volken = laadVolken();
     const lijst = document.getElementById('volk-lijst');
@@ -2203,7 +2202,8 @@
     legeStaat.style.display = 'none';
     sub.textContent = volken.length + (volken.length === 1 ? ' volk' : ' volken') + ' in beheer';
 
-    volken.forEach(volk => {
+    const gesorteerdeVolken = sorteerVolkenNatuurlijk(volken);
+    gesorteerdeVolken.forEach(volk => {
       const status = bepaalStatus(volk);
       const kaart = document.createElement('div');
       kaart.className = 'volk-kaart';
@@ -2766,33 +2766,6 @@
     } else {
       valTerugOpVolkLocatie();
     }
-  }
-
-  // ===== Service worker registreren (voor installeerbare app + offline gebruik) =====
-  // Werkt alleen wanneer de app via https (of localhost) wordt gehost — bij het lokaal
-  // openen van dit bestand (file://) mislukt dit onopvallend, de app blijft gewoon werken.
-  if('serviceWorker' in navigator){
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('sw.js').then((registratie) => {
-        registratie.addEventListener('updatefound', () => {
-          const nieuweWorker = registratie.installing;
-          if(!nieuweWorker) return;
-          nieuweWorker.addEventListener('statechange', () => {
-            if(nieuweWorker.state === 'installed' && navigator.serviceWorker.controller){
-              toonUpdateBanner();
-            }
-          });
-        });
-      }).catch(() => { /* geen probleem, bijv. bij lokaal geopend bestand */ });
-    });
-  }
-
-  function toonUpdateBanner(){
-    const banner = document.createElement('div');
-    banner.textContent = '🔄 Nieuwe versie beschikbaar — tik om te vernieuwen';
-    banner.style.cssText = 'position:fixed; bottom:0; left:0; right:0; background:#3A2317; color:#FBF6E9; padding:14px; text-align:center; z-index:99999; font-family:"Source Sans 3",sans-serif; font-weight:700; cursor:pointer;';
-    banner.onclick = () => window.location.reload();
-    document.body.appendChild(banner);
   }
 
   // Bij opstarten
