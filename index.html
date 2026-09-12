@@ -1,0 +1,3258 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>ImkerApp</title>
+<meta name="theme-color" content="#FFC107">
+<meta name="description" content="Bijhouden van bijenvolken, inspecties en agenda — gemaakt door een imker voor imkers.">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="ImkerApp">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --creme: #FBF6E9;
+    --creme-dark: #F1E8CE;
+    --bruin: #3A2317;
+    --bruin-zacht: #6B4E3D;
+    --goud: #FFC107;
+    --goud-donker: #E6A100;
+    --groen: #6B7F5E;
+    --groen-zacht: #E5EADF;
+    --roest: #B5541F;
+    --roest-zacht: #F3E1D5;
+    --raat-tan: #D9BC7C;
+    --wit: #FFFDF8;
+    --schaduw: 0 2px 8px rgba(58,35,23,0.08);
+    --schaduw-groot: 0 8px 24px rgba(58,35,23,0.14);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--creme);
+    color:var(--bruin);
+    font-family:'Source Sans 3', sans-serif;
+    min-height:100vh;
+    padding-bottom:90px;
+  }
+  h1,h2,h3{
+    font-family:'Fraunces', serif;
+    margin:0;
+    color:var(--bruin);
+  }
+  .app{
+    max-width:520px;
+    margin:0 auto;
+    min-height:100vh;
+    position:relative;
+    background-color:var(--creme);
+  }
+
+  /* Header */
+  header{
+    padding:28px 20px 20px;
+    background:
+      radial-gradient(circle at 85% -10%, rgba(255,193,7,0.4), transparent 55%),
+      var(--creme);
+    border-bottom:1px solid var(--creme-dark);
+    position:relative;
+    overflow:hidden;
+  }
+  header h1{font-size:1.7rem; font-weight:600; letter-spacing:-0.01em;}
+  .app-merknaam{
+    display:inline-block;
+    font-family:'Fraunces', serif;
+    font-weight:700;
+    font-size:0.78rem;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    color:var(--bruin);
+    background:var(--goud);
+    padding:3px 10px;
+    border-radius:20px;
+  }
+  .app-tagline{
+    font-size:0.78rem;
+    color:var(--bruin-zacht);
+    font-style:italic;
+  }
+  .weer-uitgebreid-kaart{
+    margin:16px 20px 0;
+    background:var(--wit);
+    border:1px solid var(--creme-dark);
+    border-radius:14px;
+    padding:16px;
+    box-shadow:var(--schaduw);
+  }
+  .weer-werk-status{
+    display:inline-block;
+    padding:8px 14px;
+    border-radius:20px;
+    font-weight:700;
+    font-size:0.88rem;
+    margin-bottom:14px;
+  }
+  .weer-werk-status.goed{background:var(--groen); color:var(--wit);}
+  .weer-werk-status.matig{background:var(--goud); color:var(--bruin);}
+  .weer-werk-status.slecht{background:var(--roest); color:var(--wit);}
+  .weer-nu-rij{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    flex-wrap:wrap;
+  }
+  .weer-nu-icoon{font-size:2.2rem;}
+  .weer-nu-temp{font-family:'Fraunces', serif; font-size:1.7rem; font-weight:700; color:var(--bruin);}
+  .weer-nu-detail{font-size:0.95rem; font-weight:600; color:var(--bruin-zacht);}
+  .weer-uren-rij{
+    display:flex;
+    justify-content:space-between;
+    gap:6px;
+    margin-top:14px;
+    padding-top:14px;
+    border-top:1px solid var(--creme-dark);
+  }
+  .weer-uur-item{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:4px;
+    font-size:0.78rem;
+    color:var(--bruin-zacht);
+    font-weight:600;
+  }
+  .weer-uur-item .weer-uur-icoon{font-size:1.3rem;}
+  .weer-uur-item .weer-uur-temp{color:var(--bruin); font-weight:700;}
+  header p{margin:4px 0 0; color:var(--bruin-zacht); font-size:0.95rem;}
+  .zwevend-bijtje{
+    position:absolute;
+    font-size:1.3rem;
+    opacity:0.55;
+    pointer-events:none;
+  }
+
+  /* Screens */
+  .screen{display:none; padding:20px; animation:fade .25s ease;}
+  .screen.actief{display:block;}
+  @keyframes fade{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);}}
+
+  /* Volk kaarten */
+  .volk-lijst{display:flex; flex-direction:column; gap:12px; margin-top:16px;}
+  .volk-kaart{
+    background:var(--wit);
+    border-radius:14px;
+    padding:16px 18px;
+    box-shadow:var(--schaduw);
+    border:1px solid var(--creme-dark);
+    cursor:pointer;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:12px;
+    transition:transform .12s ease, box-shadow .12s ease;
+  }
+  .volk-kaart:active{transform:scale(0.98);}
+  .volk-info h3{font-size:1.15rem; font-weight:600;}
+  .volk-info .sub{color:var(--bruin-zacht); font-size:0.88rem; margin-top:3px;}
+  .volk-status{
+    width:12px; height:12px; border-radius:50%;
+    flex-shrink:0;
+  }
+  .status-goed{background:var(--groen);}
+  .status-let-op{background:var(--goud);}
+  .status-probleem{background:var(--roest);}
+  .status-onbekend{background:var(--creme-dark); border:1px solid var(--raat-tan);}
+  .status-zwerm-alarm{background:var(--roest); animation:puls 1.6s ease-in-out infinite;}
+  @keyframes puls{
+    0%,100%{box-shadow:0 0 0 0 rgba(181,84,31,0.45);}
+    50%{box-shadow:0 0 0 6px rgba(181,84,31,0);}
+  }
+
+  .lege-staat{
+    text-align:center;
+    padding:60px 20px;
+    color:var(--bruin-zacht);
+  }
+  .lege-staat .hex{font-size:2.5rem; margin-bottom:8px;}
+
+  /* Knoppen */
+  .knop-primair{
+    background:var(--bruin);
+    color:var(--creme);
+    border:none;
+    border-radius:12px;
+    padding:14px 20px;
+    font-family:'Source Sans 3', sans-serif;
+    font-size:1rem;
+    font-weight:600;
+    cursor:pointer;
+    width:100%;
+    transition:background .15s ease;
+  }
+  .knop-primair:active{background:var(--bruin-zacht);}
+  .knop-secundair{
+    background:transparent;
+    color:var(--bruin);
+    border:1.5px solid var(--raat-tan);
+    border-radius:12px;
+    padding:12px 18px;
+    font-family:'Source Sans 3', sans-serif;
+    font-size:0.95rem;
+    font-weight:600;
+    cursor:pointer;
+    width:100%;
+  }
+  .fab{
+    position:fixed;
+    bottom:24px;
+    left:50%;
+    transform:translateX(-50%);
+    max-width:480px;
+    width:calc(100% - 40px);
+    z-index:10;
+  }
+  .fab .knop-primair{
+    box-shadow:var(--schaduw-groot);
+    font-size:1.05rem;
+    padding:16px;
+  }
+
+  /* Terugknop / topbalk in subschermen */
+  .topbalk{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:16px 20px;
+    border-bottom:1px solid var(--creme-dark);
+    background:var(--creme);
+    position:sticky;
+    top:0;
+    z-index:5;
+  }
+  .terug-btn{
+    background:var(--wit);
+    border:1px solid var(--creme-dark);
+    border-radius:10px;
+    width:38px; height:38px;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+    font-size:1.1rem;
+    color:var(--bruin);
+    flex-shrink:0;
+  }
+  .bewerk-btn{
+    background:var(--wit);
+    border:1px solid var(--creme-dark);
+    border-radius:10px;
+    padding:9px 14px;
+    cursor:pointer;
+    font-size:0.85rem;
+    font-weight:600;
+    font-family:'Source Sans 3', sans-serif;
+    color:var(--bruin-zacht);
+    flex-shrink:0;
+  }
+  .topbalk h2{font-size:1.25rem;}
+
+  /* Formulier */
+  .veld{margin-bottom:18px;}
+  .veld label{
+    display:block;
+    font-weight:600;
+    font-size:0.92rem;
+    margin-bottom:7px;
+    color:var(--bruin-zacht);
+  }
+  .veld input[type=text], .veld input[type=date], .veld input[type=number], .veld textarea, .veld select{
+    width:100%;
+    padding:12px 14px;
+    border-radius:10px;
+    border:1.5px solid var(--creme-dark);
+    background:var(--wit);
+    font-family:'Source Sans 3', sans-serif;
+    font-size:1rem;
+    color:var(--bruin);
+  }
+  .veld input:focus, .veld textarea:focus, .veld select:focus{
+    outline:2px solid var(--goud);
+    outline-offset:1px;
+    border-color:var(--goud);
+  }
+  .veld textarea{resize:vertical; min-height:70px;}
+
+  .keuze-groep{display:flex; gap:8px; flex-wrap:wrap;}
+  .keuze-btn{
+    flex:1;
+    min-width:90px;
+    padding:10px 12px;
+    border-radius:10px;
+    border:1.5px solid var(--creme-dark);
+    background:var(--wit);
+    color:var(--bruin-zacht);
+    font-family:'Source Sans 3', sans-serif;
+    font-weight:600;
+    font-size:0.9rem;
+    cursor:pointer;
+    text-align:center;
+  }
+  .keuze-btn.geselecteerd{
+    background:var(--bruin);
+    color:var(--creme);
+    border-color:var(--bruin);
+  }
+  .keuze-btn.geselecteerd.goed{background:var(--groen); border-color:var(--groen); color:var(--wit);}
+  .keuze-btn.geselecteerd.matig{background:var(--goud-donker); border-color:var(--goud-donker); color:var(--wit);}
+  .keuze-btn.geselecteerd.slecht{background:var(--roest); border-color:var(--roest); color:var(--wit);}
+
+  .schaal-rij{display:flex; gap:6px;}
+  .schaal-bol{
+    flex:1;
+    aspect-ratio:1;
+    border-radius:50%;
+    border:1.5px solid var(--creme-dark);
+    background:var(--wit);
+    cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    font-weight:700;
+    color:var(--bruin-zacht);
+    font-size:0.9rem;
+  }
+  .schaal-bol.geselecteerd{background:var(--goud); border-color:var(--goud-donker); color:var(--bruin);}
+
+  .checkbox-lijst{display:flex; flex-direction:column; gap:8px;}
+  .checkbox-item{
+    display:flex; align-items:center; gap:10px;
+    padding:10px 12px;
+    border-radius:10px;
+    border:1.5px solid var(--creme-dark);
+    background:var(--wit);
+    cursor:pointer;
+  }
+  .checkbox-item input{width:18px; height:18px; accent-color:var(--roest);}
+  .checkbox-item.aangevinkt{border-color:var(--roest); background:var(--roest-zacht);}
+
+  /* Tijdlijn inspecties */
+  .tijdlijn{display:flex; flex-direction:column; gap:0; margin-top:14px;}
+  .inspectie-item{
+    display:flex;
+    gap:14px;
+    padding-bottom:22px;
+    position:relative;
+  }
+  .inspectie-item:not(:last-child)::before{
+    content:'';
+    position:absolute;
+    left:5px;
+    top:16px;
+    bottom:0;
+    width:2px;
+    background:var(--creme-dark);
+  }
+  .tijdlijn-stip{
+    width:12px; height:12px;
+    border-radius:50%;
+    margin-top:5px;
+    flex-shrink:0;
+    z-index:1;
+  }
+  .inspectie-kaart{
+    flex:1;
+    background:var(--wit);
+    border:1px solid var(--creme-dark);
+    border-radius:12px;
+    padding:14px 16px;
+    box-shadow:var(--schaduw);
+  }
+  .inspectie-datum{font-weight:700; font-size:0.95rem;}
+  .inspectie-bewerk-link{
+    font-size:0.78rem;
+    font-weight:600;
+    color:var(--bruin-zacht);
+    cursor:pointer;
+    flex-shrink:0;
+    white-space:nowrap;
+  }
+  .inspectie-details{
+    display:flex; flex-wrap:wrap; gap:6px;
+    margin-top:8px;
+  }
+  .tag{
+    background:var(--creme-dark);
+    color:var(--bruin-zacht);
+    font-size:0.78rem;
+    font-weight:600;
+    padding:3px 9px;
+    border-radius:20px;
+  }
+  .tag.groen{background:var(--groen-zacht); color:var(--groen);}
+  .tag.roest{background:var(--roest-zacht); color:var(--roest);}
+  .inspectie-notitie{
+    margin-top:8px;
+    font-size:0.9rem;
+    color:var(--bruin-zacht);
+    font-style:italic;
+  }
+
+  .volk-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    padding:6px 0 4px;
+  }
+  .volk-header .naam{font-size:1.5rem;}
+  .volk-header .sub{color:var(--bruin-zacht); margin-top:2px;}
+  .verwijder-link{
+    color:var(--roest);
+    font-size:0.85rem;
+    background:none;
+    border:none;
+    text-decoration:underline;
+    cursor:pointer;
+    padding:0;
+    margin-top:16px;
+  }
+
+  .sectie-titel{
+    font-size:0.85rem;
+    text-transform:none;
+    color:var(--bruin-zacht);
+    font-weight:700;
+    margin:22px 0 4px;
+  }
+  .sectie-titel::before{
+    content:'🐝';
+    font-size:0.75rem;
+    margin-right:5px;
+    opacity:0.75;
+  }
+  .inklap-header{
+    width:100%;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    background:var(--wit);
+    border:1px solid var(--creme-dark);
+    border-radius:12px;
+    padding:13px 16px;
+    margin:22px 0 0;
+    font-family:'Source Sans 3', sans-serif;
+    font-size:0.92rem;
+    font-weight:700;
+    color:var(--bruin);
+    cursor:pointer;
+  }
+  .inklap-header span:last-child{
+    color:var(--bruin-zacht);
+    transition:transform 0.15s ease;
+  }
+  .inklap-header.open span:last-child{transform:rotate(90deg);}
+
+  /* Tabbalk overzicht (Lijst / Kaart) */
+  .tabbalk{
+    display:flex;
+    gap:6px;
+    padding:0 20px 16px;
+  }
+  .tab-knop{
+    flex:1;
+    padding:9px 14px;
+    border-radius:10px;
+    border:1.5px solid var(--creme-dark);
+    background:var(--wit);
+    color:var(--bruin-zacht);
+    font-family:'Source Sans 3', sans-serif;
+    font-weight:600;
+    font-size:0.92rem;
+    cursor:pointer;
+  }
+  .tab-knop.actief{
+    background:var(--bruin);
+    color:var(--creme);
+    border-color:var(--bruin);
+  }
+  .tabweergave{display:none;}
+  .tabweergave.actief{display:block;}
+
+  /* Kaarten (Leaflet) */
+  .kaart-vlak{
+    width:100%;
+    height:60vh;
+    min-height:340px;
+    border-radius:14px;
+    border:1px solid var(--creme-dark);
+    box-shadow:var(--schaduw);
+    overflow:hidden;
+  }
+  .mini-kaart-vlak{
+    width:100%;
+    height:220px;
+    border-radius:12px;
+    border:1.5px solid var(--creme-dark);
+    overflow:hidden;
+    margin-bottom:10px;
+  }
+  .kaart-hint{
+    font-size:0.85rem;
+    color:var(--bruin-zacht);
+    margin:0 0 4px;
+  }
+  .bijenkast-marker{
+    background:var(--goud);
+    border:2.5px solid var(--wit);
+    border-radius:50% 50% 50% 4px;
+    width:30px;
+    height:30px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:15px;
+    box-shadow:var(--schaduw);
+    transform:rotate(45deg);
+  }
+  .bijenkast-marker span{transform:rotate(-45deg);}
+  .leaflet-popup-content-wrapper{
+    border-radius:12px;
+    font-family:'Source Sans 3', sans-serif;
+  }
+  .popup-volk-naam{font-weight:700; margin-bottom:4px; font-family:'Fraunces', serif; font-size:1.05rem;}
+  .popup-link{
+    color:var(--goud-donker);
+    font-weight:600;
+    cursor:pointer;
+    text-decoration:underline;
+    font-size:0.9rem;
+  }
+  .locatie-knoppen{display:flex; gap:8px; margin-bottom:12px;}
+
+  /* Configuratie pop-up */
+  .modal-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(58,35,23,0.45);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:10000;
+    padding:20px;
+  }
+  .modal-kaart{
+    background:var(--wit);
+    border-radius:16px;
+    padding:22px 20px;
+    max-width:400px;
+    width:100%;
+    box-shadow:var(--schaduw-groot);
+  }
+
+  /* Agenda */
+  .agenda-maand-nav{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:14px;
+  }
+  .agenda-maand-nav > div{
+    font-family:'Fraunces', serif;
+    font-weight:700;
+    font-size:1.1rem;
+  }
+  .agenda-weekdagen{
+    display:grid;
+    grid-template-columns:repeat(7, 1fr);
+    text-align:center;
+    font-size:0.75rem;
+    font-weight:700;
+    color:var(--bruin-zacht);
+    margin-bottom:4px;
+  }
+  .agenda-grid{
+    display:grid;
+    grid-template-columns:repeat(7, 1fr);
+    gap:3px;
+    margin-bottom:12px;
+  }
+  .agenda-dag{
+    aspect-ratio:1;
+    border-radius:8px;
+    background:var(--wit);
+    border:1px solid var(--creme-dark);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    font-size:0.8rem;
+    color:var(--bruin);
+    position:relative;
+    gap:2px;
+  }
+  .agenda-dag.leeg{background:transparent; border:none;}
+  .agenda-dag.vandaag{border-color:var(--goud); border-width:2px; font-weight:700;}
+  .agenda-stippen{display:flex; gap:2px;}
+  .agenda-stip{width:6px; height:6px; border-radius:50%; display:inline-block;}
+  .agenda-legenda{
+    display:flex;
+    gap:16px;
+    font-size:0.8rem;
+    color:var(--bruin-zacht);
+    margin-bottom:16px;
+  }
+  .agenda-legenda span{display:flex; align-items:center; gap:5px;}
+  .agenda-taak-item{
+    display:flex;
+    align-items:flex-start;
+    gap:10px;
+    background:var(--wit);
+    border:1px solid var(--creme-dark);
+    border-radius:12px;
+    padding:12px 14px;
+    margin-bottom:10px;
+  }
+  .agenda-taak-item.afgerond{opacity:0.55;}
+  .agenda-taak-info{flex:1;}
+  .agenda-taak-datum{font-weight:700; font-size:0.9rem;}
+  .agenda-taak-type{font-size:0.85rem; color:var(--bruin-zacht); margin-top:2px;}
+  .agenda-taak-notitie{font-size:0.82rem; color:var(--bruin-zacht); font-style:italic; margin-top:4px;}
+  .agenda-taak-acties{display:flex; flex-direction:column; gap:6px; align-items:flex-end;}
+  .agenda-taak-link{font-size:0.78rem; font-weight:600; color:var(--bruin-zacht); cursor:pointer; white-space:nowrap;}
+
+  /* Foto's */
+  .foto-previews{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;}
+  .foto-thumb{position:relative; width:70px; height:70px;}
+  .foto-thumb img{
+    width:100%; height:100%; object-fit:cover;
+    border-radius:10px; border:1px solid var(--creme-dark); cursor:pointer;
+  }
+  .foto-verwijder{
+    position:absolute; top:-6px; right:-6px;
+    width:20px; height:20px; border-radius:50%;
+    background:var(--roest); color:var(--wit);
+    display:flex; align-items:center; justify-content:center;
+    font-size:0.85rem; font-weight:700; cursor:pointer;
+    box-shadow:var(--schaduw);
+  }
+  .inspectie-fotos{display:flex; gap:6px; margin-top:8px;}
+  .inspectie-fotos img{
+    width:54px; height:54px; object-fit:cover;
+    border-radius:8px; border:1px solid var(--creme-dark); cursor:pointer;
+  }
+
+  /* Dashboard / jaaroverzicht */
+  .stat-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    margin-bottom:20px;
+  }
+  .stat-kaart{
+    background:var(--wit);
+    border:1px solid var(--creme-dark);
+    border-radius:12px;
+    padding:14px 16px;
+  }
+  .stat-label{font-size:0.78rem; color:var(--bruin-zacht); font-weight:600;}
+  .stat-getal{font-family:'Fraunces', serif; font-size:1.7rem; font-weight:700; color:var(--bruin); margin-top:2px;}
+
+  /* Grafieken */
+  .grafiek-kaart{
+    background:var(--wit);
+    border:1px solid var(--creme-dark);
+    border-radius:14px;
+    padding:16px 16px 8px;
+    box-shadow:var(--schaduw);
+    margin-bottom:14px;
+  }
+  .grafiek-titel{
+    font-weight:700;
+    font-size:0.92rem;
+    color:var(--bruin-zacht);
+    margin-bottom:10px;
+  }
+  .grafiek-vlak{position:relative; height:180px;}
+  .geen-grafiek{
+    text-align:center;
+    padding:20px;
+    color:var(--bruin-zacht);
+    font-size:0.9rem;
+  }
+
+  /* Zwermalarm */
+  .alarm-banner{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    background:var(--roest-zacht);
+    border:1.5px solid var(--roest);
+    color:var(--roest);
+    border-radius:12px;
+    padding:12px 14px;
+    font-weight:600;
+    font-size:0.9rem;
+    margin-bottom:14px;
+  }
+  .alarm-banner .icoon{font-size:1.3rem; flex-shrink:0;}
+  .alarm-kaart-tekst{
+    font-size:0.8rem;
+    font-weight:700;
+    color:var(--roest);
+    margin-top:6px;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- SCHERM 1: Overzicht volken -->
+  <div id="scherm-overzicht" class="screen actief">
+    <header>
+      <span class="zwevend-bijtje" style="top:14px; right:60px; transform:rotate(-8deg);">🐝</span>
+      <span class="zwevend-bijtje" style="top:50px; right:24px; font-size:0.9rem; transform:rotate(12deg);">🐝</span>
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap;">
+        <div class="app-merknaam">ImkerApp</div>
+        <span class="app-tagline">gemaakt door een imker voor imkers</span>
+      </div>
+      <h1>Mijn bijenvolken</h1>
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:4px;">
+        <p id="overzicht-sub" style="margin:0;">Nog geen volken toegevoegd</p>
+        <div style="display:flex; gap:6px; flex-shrink:0;">
+          <button class="bewerk-btn" onclick="toonZoekScherm()" style="padding:9px 11px;">🔍</button>
+          <button class="bewerk-btn" onclick="toonDashboardScherm()" style="padding:9px 11px;">📊</button>
+        </div>
+      </div>
+    </header>
+
+    <div id="zwermseizoen-banner" class="alarm-banner" style="display:none; margin:0 20px 12px;">
+      <span class="icoon">🐝</span>
+      <span>Het is zwermseizoen (half april t/m eind juni) — controleer je volken regelmatig (elke 7-9 dagen) op zwermcellen.</span>
+    </div>
+
+    <div class="tabbalk">
+      <button class="tab-knop actief" id="tab-lijst-btn" onclick="wisselTab('lijst')">📋 Lijst</button>
+      <button class="tab-knop" id="tab-kaart-btn" onclick="wisselTab('kaart')">🗺️ Kaart</button>
+    </div>
+
+    <div class="tabweergave actief" id="tabweergave-lijst" style="padding:0 20px;">
+      <div id="volk-lijst" class="volk-lijst"></div>
+      <div id="lege-staat" class="lege-staat">
+        <div class="hex">🐝</div>
+        <p>Je hebt nog geen volken. Voeg je eerste volk toe om te beginnen met bijhouden.</p>
+      </div>
+    </div>
+
+    <div class="tabweergave" id="tabweergave-kaart" style="padding:0 20px;">
+      <p class="kaart-hint">Tik op een kast op de kaart voor het volk-overzicht.</p>
+      <div id="hoofdkaart" class="kaart-vlak"></div>
+      <div id="geen-locaties" class="lege-staat" style="display:none;">
+        <div class="hex">📍</div>
+        <p>Nog geen enkele kast heeft een locatie. Voeg een locatie toe bij het aanmaken van een volk, of via 'Locatie instellen' bij een bestaand volk.</p>
+      </div>
+    </div>
+
+    <div style="padding:0 20px; display:flex; gap:8px; margin-top:8px;">
+      <button class="knop-secundair" style="flex:1; width:auto; font-size:0.85rem; padding:10px 8px;" onclick="exporteerBackup()">⬇️ Exporteren</button>
+      <button class="knop-secundair" style="flex:1; width:auto; font-size:0.85rem; padding:10px 8px;" onclick="document.getElementById('import-bestand').click()">⬆️ Herstellen</button>
+      <input type="file" id="import-bestand" accept=".json,application/json" style="display:none;" onchange="herstelBackup(event)">
+    </div>
+
+    <p style="text-align:center; font-size:0.78rem; color:var(--raat-tan); margin:8px 0 0;">🐝 Ontworpen door: Leroy Schrader</p>
+
+    <div id="weer-uitgebreid" class="weer-uitgebreid-kaart" style="display:none;">
+      <div id="weer-werk-status" class="weer-werk-status"></div>
+      <div class="weer-nu-rij">
+        <span id="weer-nu-icoon" class="weer-nu-icoon"></span>
+        <span id="weer-nu-temp" class="weer-nu-temp"></span>
+        <span class="weer-nu-detail">💨 <span id="weer-nu-wind"></span></span>
+        <span class="weer-nu-detail">💧 <span id="weer-nu-neerslag"></span></span>
+      </div>
+      <div id="weer-uren-rij" class="weer-uren-rij"></div>
+    </div>
+
+    <div class="fab">
+      <button class="knop-primair" onclick="toonNieuwVolkScherm()">+ Nieuw volk</button>
+    </div>
+  </div>
+
+  <!-- SCHERM 2: Nieuw volk toevoegen -->
+  <div id="scherm-nieuw-volk" class="screen">
+    <div class="topbalk">
+      <button class="terug-btn" onclick="toonScherm('scherm-overzicht')">←</button>
+      <h2>Nieuw volk</h2>
+    </div>
+    <div style="padding:20px;">
+      <div class="veld">
+        <label for="input-volk-naam">Naam of nummer</label>
+        <input type="text" id="input-volk-naam" placeholder="Bijv. Kast 1, Koningin Fleur...">
+      </div>
+      <div class="veld">
+        <label for="input-volk-locatie">Locatie / standplaats (optioneel)</label>
+        <input type="text" id="input-volk-locatie" placeholder="Bijv. Tuin, Weiland Jansen...">
+      </div>
+      <div class="veld">
+        <label for="input-ras">Bijenras</label>
+        <select id="input-ras" onchange="wisselRasVeld()">
+          <option value="">Onbekend / niet ingevuld</option>
+          <option value="Carnica">Carnica (Apis mellifera carnica)</option>
+          <option value="Buckfast">Buckfast</option>
+          <option value="Ligustica">Ligustica (Italiaanse bij)</option>
+          <option value="Mellifera">Mellifera (Zwarte bij)</option>
+          <option value="Caucasica">Caucasica (Kaukasische bij)</option>
+          <option value="overig">Overig (zelf invullen)</option>
+        </select>
+        <input type="text" id="input-ras-overig" placeholder="Vul het bijenras in" style="margin-top:8px; display:none;">
+      </div>
+      <div class="veld">
+        <label for="input-moergeneratie">Moergeneratie</label>
+        <select id="input-moergeneratie">
+          <option value="">Onbekend / niet ingevuld</option>
+          <option value="P0">P0</option>
+          <option value="F1">F1</option>
+          <option value="F2">F2</option>
+          <option value="F3">F3</option>
+          <option value="F4">F4</option>
+          <option value="F5">F5</option>
+          <option value="F6">F6</option>
+          <option value="F7">F7</option>
+        </select>
+      </div>
+      <div class="veld">
+        <label for="input-moerjaar">Geboortejaar van de moer (optioneel)</label>
+        <input type="number" id="input-moerjaar" placeholder="Bijv. 2024" min="2000" max="2100" step="1">
+      </div>
+      <div class="veld">
+        <label>Positie op de kaart (optioneel)</label>
+        <div class="locatie-knoppen">
+          <button type="button" class="knop-secundair" onclick="gebruikHuidigeLocatie()">📍 Gebruik mijn locatie</button>
+        </div>
+        <p class="kaart-hint">Of tik op de kaart om de kast handmatig te plaatsen.</p>
+        <div id="mini-kaart-nieuw" class="mini-kaart-vlak"></div>
+      </div>
+      <button class="knop-primair" onclick="volkOpslaan()">Volk toevoegen</button>
+    </div>
+  </div>
+
+  <!-- SCHERM 2b: Volk bewerken -->
+  <div id="scherm-bewerk-volk" class="screen">
+    <div class="topbalk">
+      <button class="terug-btn" onclick="toonScherm('scherm-volk-detail')">←</button>
+      <h2>Volk bewerken</h2>
+    </div>
+    <div style="padding:20px;">
+      <div class="veld">
+        <label for="bewerk-naam">Naam of nummer</label>
+        <input type="text" id="bewerk-naam" placeholder="Bijv. Kast 1, Koningin Fleur...">
+      </div>
+      <div class="veld">
+        <label for="bewerk-locatie">Locatie / standplaats (optioneel)</label>
+        <input type="text" id="bewerk-locatie" placeholder="Bijv. Tuin, Weiland Jansen...">
+      </div>
+      <div class="veld">
+        <label for="bewerk-ras">Bijenras</label>
+        <select id="bewerk-ras" onchange="wisselRasVeldBewerken()">
+          <option value="">Onbekend / niet ingevuld</option>
+          <option value="Carnica">Carnica (Apis mellifera carnica)</option>
+          <option value="Buckfast">Buckfast</option>
+          <option value="Ligustica">Ligustica (Italiaanse bij)</option>
+          <option value="Mellifera">Mellifera (Zwarte bij)</option>
+          <option value="Caucasica">Caucasica (Kaukasische bij)</option>
+          <option value="overig">Overig (zelf invullen)</option>
+        </select>
+        <input type="text" id="bewerk-ras-overig" placeholder="Vul het bijenras in" style="margin-top:8px; display:none;">
+      </div>
+      <div class="veld">
+        <label for="bewerk-moergeneratie">Moergeneratie</label>
+        <select id="bewerk-moergeneratie">
+          <option value="">Onbekend / niet ingevuld</option>
+          <option value="P0">P0</option>
+          <option value="F1">F1</option>
+          <option value="F2">F2</option>
+          <option value="F3">F3</option>
+          <option value="F4">F4</option>
+          <option value="F5">F5</option>
+          <option value="F6">F6</option>
+          <option value="F7">F7</option>
+        </select>
+      </div>
+      <div class="veld">
+        <label for="bewerk-moerjaar">Geboortejaar van de moer (optioneel)</label>
+        <input type="number" id="bewerk-moerjaar" placeholder="Bijv. 2024" min="2000" max="2100" step="1">
+      </div>
+      <p class="kaart-hint">De positie op de kaart pas je aan door terug te gaan naar het volk en op de kaart te tikken.</p>
+      <button class="knop-primair" onclick="volkWijzigingenOpslaan()">Wijzigingen opslaan</button>
+      <button class="verwijder-link" onclick="volkVerwijderen()" style="display:block; text-align:center; width:100%; margin-top:16px;">Volk verwijderen</button>
+    </div>
+  </div>
+
+  <!-- SCHERM 3: Volk detail -->
+  <div id="scherm-volk-detail" class="screen">
+    <div class="topbalk">
+      <button class="terug-btn" onclick="toonScherm('scherm-overzicht')">←</button>
+      <h2 id="detail-titel">Volk</h2>
+      <button class="bewerk-btn" onclick="toonAgendaScherm()" style="margin-left:auto;">📅 Agenda</button>
+      <button class="bewerk-btn" onclick="toonBewerkVolkScherm()">✏️ Bewerken</button>
+    </div>
+    <div style="padding:20px;">
+      <div id="detail-locatie" class="sub" style="color:var(--bruin-zacht);"></div>
+      <div id="detail-ras-info" class="inspectie-details" style="margin:8px 0 0;"></div>
+
+      <div id="zwerm-alarm-banner" class="alarm-banner" style="display:none;">
+        <span class="icoon">⚠️</span>
+        <span id="zwerm-alarm-tekst"></span>
+      </div>
+
+      <div class="sectie-titel">Positie op de kaart</div>
+      <p class="kaart-hint">Tik op de kaart om de positie in te stellen of te verplaatsen.</p>
+      <div class="locatie-knoppen">
+        <button type="button" class="knop-secundair" onclick="gebruikHuidigeLocatieDetail()">📍 Gebruik mijn locatie</button>
+      </div>
+      <div id="mini-kaart-detail" class="mini-kaart-vlak"></div>
+
+      <div class="sectie-titel">Verloop van inspecties</div>
+      <div id="grafieken-container">
+        <div class="grafiek-kaart">
+          <div class="grafiek-titel">Broednestdekking (schaal 1-5)</div>
+          <div class="grafiek-vlak"><canvas id="grafiek-broednest"></canvas></div>
+        </div>
+        <div class="grafiek-kaart">
+          <div class="grafiek-titel">Varroatelling</div>
+          <div class="grafiek-vlak"><canvas id="grafiek-varroa"></canvas></div>
+        </div>
+      </div>
+      <div id="geen-grafiek" class="geen-grafiek" style="display:none;">
+        Nog te weinig inspecties (minimaal 2) om een verloop te tonen.
+      </div>
+
+      <div id="jaartrend-sectie" style="display:none;">
+        <div class="sectie-titel">Meerjarenvergelijking</div>
+        <div class="grafiek-kaart">
+          <div class="grafiek-titel">Gemiddeld broednest per jaar</div>
+          <div class="grafiek-vlak"><canvas id="grafiek-jaartrend-broednest"></canvas></div>
+        </div>
+        <div class="grafiek-kaart">
+          <div class="grafiek-titel">Gemiddelde varroatelling per jaar</div>
+          <div class="grafiek-vlak"><canvas id="grafiek-jaartrend-varroa"></canvas></div>
+        </div>
+      </div>
+
+      <div class="sectie-titel">Inspecties</div>
+      <div id="tijdlijn-container" class="tijdlijn"></div>
+      <div id="geen-inspecties" class="lege-staat" style="padding:30px 10px;">
+        <p>Nog geen inspecties voor dit volk.</p>
+      </div>
+
+      <button type="button" class="inklap-header" onclick="wisselOogstSectie()">
+        <span>🍯 Honingoogst</span>
+        <span id="oogst-toggle-icoon">▸</span>
+      </button>
+      <div id="oogst-inhoud" class="grafiek-kaart" style="display:none;">
+        <p id="oogst-totalen" class="kaart-hint" style="margin-top:0;"></p>
+
+        <div style="display:flex; gap:8px; align-items:flex-end; margin-top:4px;">
+          <div class="veld" style="margin-bottom:0; flex:1;">
+            <label for="oogst-datum">Datum</label>
+            <input type="date" id="oogst-datum">
+          </div>
+          <div class="veld" style="margin-bottom:0; flex:1;">
+            <label for="oogst-kg">Kg honing</label>
+            <input type="number" id="oogst-kg" min="0" step="0.1" placeholder="Bijv. 12">
+          </div>
+        </div>
+        <div class="veld" style="margin-top:12px;">
+          <label for="oogst-notitie">Notitie (optioneel)</label>
+          <input type="text" id="oogst-notitie" placeholder="Bijv. voorjaarshoning, lindebloesem...">
+        </div>
+        <button class="knop-secundair" onclick="oogstToevoegen()">+ Oogst toevoegen</button>
+
+        <div id="oogst-lijst" style="margin-top:16px;"></div>
+        <div id="oogst-geen" class="kaart-hint" style="display:none;">Nog geen oogst geregistreerd voor dit volk.</div>
+      </div>
+
+      <button type="button" class="inklap-header" onclick="wisselInwinterSectie()">
+        <span>🍂 Inwinteren</span>
+        <span id="inwinter-toggle-icoon">▸</span>
+      </button>
+      <div id="inwinter-inhoud" class="grafiek-kaart" style="display:none;">
+        <div class="veld">
+          <label for="inwinter-voerramen">Aantal ramen gevuld met voer</label>
+          <input type="number" id="inwinter-voerramen" min="0" step="0.5" placeholder="Bijv. 2,5" oninput="berekenInwinterLive()">
+        </div>
+        <div class="veld">
+          <label for="inwinter-kg-per-raam">Kg voer per vol raam (indicatief, afhankelijk van je kasttype)</label>
+          <input type="number" id="inwinter-kg-per-raam" min="0" step="0.1" placeholder="Bijv. 2,5" oninput="berekenInwinterLive()">
+        </div>
+        <p id="inwinter-berekend" class="kaart-hint" style="margin-top:-6px;"></p>
+        <div class="veld">
+          <label for="inwinter-broedramen">Aantal broedramen nu aanwezig</label>
+          <input type="number" id="inwinter-broedramen" min="0" step="1" placeholder="Bijv. 6">
+        </div>
+        <div class="veld" style="margin-bottom:0;">
+          <label for="inwinter-doel-kg">Streefgewicht voer voor de winter (kg)</label>
+          <input type="number" id="inwinter-doel-kg" min="0" step="0.5" placeholder="Bijv. 15">
+        </div>
+        <button class="knop-secundair" onclick="inwinterenOpslaan()" style="margin-top:14px;">Opslaan</button>
+        <div id="inwinter-resultaat" style="margin-top:14px; font-weight:700; font-size:0.92rem;"></div>
+
+        <div style="margin-top:18px; padding-top:16px; border-top:1px solid var(--creme-dark);">
+          <label style="display:block; font-weight:600; font-size:0.92rem; margin-bottom:7px; color:var(--bruin-zacht);">Voer toegevoegd (bijgevoerd)</label>
+          <div style="display:flex; gap:8px; align-items:flex-end;">
+            <div class="veld" style="margin-bottom:0; flex:1;">
+              <label for="inwinter-liter-toegevoegd" style="font-size:0.82rem;">Aantal liter 3:2-suikerwater dat je nu hebt gegeven</label>
+              <input type="number" id="inwinter-liter-toegevoegd" min="0" step="0.1" placeholder="Bijv. 4">
+            </div>
+            <button class="knop-secundair" onclick="voerToevoegen()" style="width:auto; padding:12px 16px; white-space:nowrap;">+ Toevoegen</button>
+          </div>
+          <p id="inwinter-bijgevoerd-totaal" class="kaart-hint" style="margin-top:8px;"></p>
+          <span id="inwinter-reset-link" class="agenda-taak-link" onclick="voerBijgevoerdResetten()" style="display:none;">Bijgevoerd totaal resetten</span>
+        </div>
+      </div>
+
+      <button class="knop-secundair" onclick="printVolkRapport()" style="margin-top:16px;">🖨️ Rapport printen</button>
+    </div>
+    <div class="fab">
+      <button class="knop-primair" onclick="toonConfiguratiePopup()">+ Nieuwe inspectie</button>
+    </div>
+  </div>
+
+  <!-- SCHERM 4: Nieuwe inspectie -->
+  <div id="scherm-nieuwe-inspectie" class="screen">
+    <div class="topbalk">
+      <button class="terug-btn" onclick="toonScherm('scherm-volk-detail')">←</button>
+      <h2 id="inspectie-form-titel">Nieuwe inspectie</h2>
+    </div>
+    <div style="padding:20px;">
+
+      <div id="kopieer-knop-rij" style="display:none; margin-bottom:16px;">
+        <button class="knop-secundair" onclick="kopieerVorigeInspectie()">📋 Vul in zoals vorige keer</button>
+      </div>
+
+      <div class="veld">
+        <label for="input-datum">Datum</label>
+        <input type="date" id="input-datum">
+      </div>
+
+      <div class="veld" id="weer-veld">
+        <label>Weer op deze locatie</label>
+        <div id="weer-info" class="kaart-hint" style="margin:0;">Weer wordt opgehaald...</div>
+      </div>
+
+      <div class="veld">
+        <label>Koningin gezien?</label>
+        <div class="keuze-groep" id="groep-koningin">
+          <button type="button" class="keuze-btn" data-waarde="ja" onclick="kiesOptie('groep-koningin', this)">Ja</button>
+          <button type="button" class="keuze-btn" data-waarde="nee" onclick="kiesOptie('groep-koningin', this)">Nee</button>
+          <button type="button" class="keuze-btn" data-waarde="niet-gezocht" onclick="kiesOptie('groep-koningin', this)">Niet gezocht</button>
+        </div>
+      </div>
+
+      <div class="veld">
+        <label>Broednest (dekking)</label>
+        <div class="schaal-rij" id="schaal-broednest">
+          <div class="schaal-bol" data-waarde="1" onclick="kiesSchaal('schaal-broednest', this)">1</div>
+          <div class="schaal-bol" data-waarde="2" onclick="kiesSchaal('schaal-broednest', this)">2</div>
+          <div class="schaal-bol" data-waarde="3" onclick="kiesSchaal('schaal-broednest', this)">3</div>
+          <div class="schaal-bol" data-waarde="4" onclick="kiesSchaal('schaal-broednest', this)">4</div>
+          <div class="schaal-bol" data-waarde="5" onclick="kiesSchaal('schaal-broednest', this)">5</div>
+        </div>
+      </div>
+
+      <div class="veld">
+        <label for="input-voedsel">Voedselvoorraad</label>
+        <div class="keuze-groep" id="groep-voedsel">
+          <button type="button" class="keuze-btn" data-waarde="weinig" onclick="kiesOptie('groep-voedsel', this, true)">Weinig</button>
+          <button type="button" class="keuze-btn" data-waarde="voldoende" onclick="kiesOptie('groep-voedsel', this, true)">Voldoende</button>
+          <button type="button" class="keuze-btn" data-waarde="veel" onclick="kiesOptie('groep-voedsel', this, true)">Veel</button>
+        </div>
+      </div>
+
+      <div class="veld">
+        <label>Temperament</label>
+        <div class="keuze-groep" id="groep-temperament">
+          <button type="button" class="keuze-btn" data-waarde="rustig" onclick="kiesOptie('groep-temperament', this, true)">Rustig</button>
+          <button type="button" class="keuze-btn" data-waarde="normaal" onclick="kiesOptie('groep-temperament', this, true)">Normaal</button>
+          <button type="button" class="keuze-btn" data-waarde="fel" onclick="kiesOptie('groep-temperament', this, true)">Fel</button>
+        </div>
+      </div>
+
+      <div class="veld">
+        <label for="input-varroa">Varroatelling (aantal mijten geteld)</label>
+        <input type="number" id="input-varroa" min="0" step="1" placeholder="Bijv. 0, 3, 12...">
+        <p class="kaart-hint" style="margin-top:6px;">Bijv. het aantal mijten op de zeefbodem na 24 uur, of via de wasmestelling — vul in op de manier die je gewend bent.</p>
+      </div>
+
+      <div class="veld">
+        <label>Gezondheid — signalen (aanvinken wat van toepassing is)</label>
+        <div class="checkbox-lijst" id="lijst-gezondheid">
+          <label class="checkbox-item"><input type="checkbox" value="kalkbroed"> Kalkbroed</label>
+          <label class="checkbox-item"><input type="checkbox" value="wratjesziekte"> Wratjesziekte / Nosema</label>
+          <label class="checkbox-item"><input type="checkbox" value="zwermneiging"> Zwermneiging (doppen)</label>
+          <label class="checkbox-item"><input type="checkbox" value="geen"> Geen bijzonderheden</label>
+        </div>
+      </div>
+
+      <div class="veld">
+        <label>Bijzondere gebeurtenis</label>
+        <label class="checkbox-item" id="moerwissel-item" style="border-color:#D9BC7C;">
+          <input type="checkbox" id="input-moerwissel" onchange="wisselMoerwisselSectie()">
+          👑 Moerwissel geconstateerd
+        </label>
+
+        <div id="moerwissel-details" style="display:none; margin-top:10px;">
+          <div class="keuze-groep" id="groep-moerwissel-type">
+            <button type="button" class="keuze-btn" data-waarde="stil" onclick="kiesMoerwisselType(this)">Stille moerwissel</button>
+            <button type="button" class="keuze-btn" data-waarde="nieuw" onclick="kiesMoerwisselType(this)">Nieuwe koningin ingebracht</button>
+          </div>
+
+          <p id="moerwissel-stil-uitleg" class="kaart-hint" style="margin-top:8px; display:none;">De moergeneratie schuift automatisch één stap op (bijv. F2 → F3) en het geboortejaar wordt het jaar van deze inspectie — het ras blijft gelijk, want het is een dochter van de huidige koningin.</p>
+
+          <div id="moerwissel-nieuw-velden" style="display:none; margin-top:8px;">
+            <div class="veld">
+              <label for="input-moerwissel-ras">Ras / zuiverheid van de nieuwe koningin</label>
+              <select id="input-moerwissel-ras" onchange="wisselMoerwisselRasVeld()">
+                <option value="">Onbekend / niet ingevuld</option>
+                <option value="Carnica">Carnica (Apis mellifera carnica)</option>
+                <option value="Buckfast">Buckfast</option>
+                <option value="Ligustica">Ligustica (Italiaanse bij)</option>
+                <option value="Mellifera">Mellifera (Zwarte bij)</option>
+                <option value="Caucasica">Caucasica (Kaukasische bij)</option>
+                <option value="overig">Overig (zelf invullen)</option>
+              </select>
+              <input type="text" id="input-moerwissel-ras-overig" placeholder="Vul het ras of de zuiverheid in" style="margin-top:8px; display:none;">
+            </div>
+            <div class="veld">
+              <label for="input-moerwissel-generatie">Moergeneratie van de nieuwe koningin</label>
+              <select id="input-moerwissel-generatie">
+                <option value="">Onbekend / niet ingevuld</option>
+                <option value="P0">P0</option>
+                <option value="F1">F1</option>
+                <option value="F2">F2</option>
+                <option value="F3">F3</option>
+                <option value="F4">F4</option>
+                <option value="F5">F5</option>
+                <option value="F6">F6</option>
+                <option value="F7">F7</option>
+              </select>
+            </div>
+            <div class="veld" style="margin-bottom:0;">
+              <label for="input-moerwissel-jaar">Geboortejaar van de nieuwe koningin</label>
+              <input type="number" id="input-moerwissel-jaar" min="2000" max="2100" step="1" placeholder="Bijv. 2026">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="veld">
+        <label>Foto's (optioneel, max 3)</label>
+        <input type="file" id="input-foto" accept="image/*" capture="environment" onchange="fotoToevoegen(event)">
+        <div id="foto-previews" class="foto-previews"></div>
+      </div>
+
+      <div class="veld">
+        <label for="input-notitie">Notitie</label>
+        <textarea id="input-notitie" placeholder="Vrije aantekeningen over deze inspectie..."></textarea>
+      </div>
+
+      <button class="knop-primair" id="inspectie-opslaan-knop" onclick="inspectieOpslaan()">Inspectie opslaan</button>
+      <button class="verwijder-link" id="inspectie-verwijder-link" onclick="inspectieVerwijderen()" style="display:none; text-align:center; width:100%; margin-top:14px;">Inspectie verwijderen</button>
+    </div>
+  </div>
+
+  <!-- Pop-up: configuratie-check bij start van een inspectie -->
+  <div id="configuratie-popup" class="modal-overlay" style="display:none;">
+    <div class="modal-kaart">
+      <h3 style="margin-bottom:4px;">Is de situatie veranderd?</h3>
+      <p class="kaart-hint" style="margin-bottom:16px;">Vul aan of laat staan als er niets is gewijzigd sinds de vorige inspectie.</p>
+      <div class="veld">
+        <label for="popup-broedbakken">Aantal broedbakken</label>
+        <input type="number" id="popup-broedbakken" min="0" placeholder="Bijv. 2">
+      </div>
+      <div class="veld">
+        <label for="popup-honingkamers">Aantal honingkamers</label>
+        <input type="number" id="popup-honingkamers" min="0" placeholder="Bijv. 1">
+      </div>
+      <div style="display:flex; gap:8px; margin-top:6px;">
+        <button class="knop-secundair" onclick="sluitConfiguratiePopup()">Ongewijzigd</button>
+        <button class="knop-primair" onclick="bevestigConfiguratie()">Opslaan en verder</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCHERM 5: Agenda per volk -->
+  <div id="scherm-agenda" class="screen">
+    <div class="topbalk">
+      <button class="terug-btn" onclick="toonScherm('scherm-volk-detail')">←</button>
+      <h2 id="agenda-titel">Agenda</h2>
+    </div>
+    <div style="padding:20px;">
+      <div class="agenda-maand-nav">
+        <button class="terug-btn" onclick="agendaWisselMaand(-1)">←</button>
+        <div id="agenda-maand-label"></div>
+        <button class="terug-btn" onclick="agendaWisselMaand(1)">→</button>
+      </div>
+      <div class="agenda-weekdagen">
+        <span>ma</span><span>di</span><span>wo</span><span>do</span><span>vr</span><span>za</span><span>zo</span>
+      </div>
+      <div id="agenda-grid" class="agenda-grid"></div>
+
+      <div class="agenda-legenda">
+        <span><span class="agenda-stip" style="background:var(--groen);"></span> Inspectie</span>
+        <span><span class="agenda-stip" style="background:var(--goud);"></span> Geplande taak</span>
+      </div>
+
+      <div id="agenda-suggestie" class="alarm-banner" style="display:none; background:var(--creme-dark); border-color:var(--raat-tan); color:var(--bruin-zacht);">
+        <span class="icoon">💡</span>
+        <span id="agenda-suggestie-tekst"></span>
+      </div>
+
+      <div class="sectie-titel">Geplande taken</div>
+      <div id="agenda-taken-lijst"></div>
+      <div id="agenda-geen-taken" class="lege-staat" style="display:none; padding:24px 10px;">
+        <p>Nog geen taken gepland voor dit volk.</p>
+      </div>
+
+      <button class="knop-primair" onclick="toonNieuweTaakPopup()" style="margin-top:14px;">+ Taak plannen</button>
+    </div>
+  </div>
+
+  <!-- SCHERM 7: Zoeken -->
+  <div id="scherm-zoeken" class="screen">
+    <div class="topbalk">
+      <button class="terug-btn" onclick="toonScherm('scherm-overzicht')">←</button>
+      <h2>Zoeken</h2>
+    </div>
+    <div style="padding:20px;">
+      <div class="veld">
+        <input type="text" id="zoek-input" placeholder="Zoek in namen, notities, gezondheidssignalen..." oninput="voerZoekopdrachtUit()">
+      </div>
+      <div id="zoek-resultaten"></div>
+    </div>
+  </div>
+
+  <!-- SCHERM 6: Dashboard / jaaroverzicht -->
+  <div id="scherm-dashboard" class="screen">
+    <div class="topbalk">
+      <button class="terug-btn" onclick="toonScherm('scherm-overzicht')">←</button>
+      <h2>Jaaroverzicht</h2>
+    </div>
+    <div style="padding:20px;">
+      <div class="agenda-maand-nav">
+        <button class="terug-btn" onclick="dashboardWisselJaar(-1)">←</button>
+        <div id="dashboard-jaar-label"></div>
+        <button class="terug-btn" onclick="dashboardWisselJaar(1)">→</button>
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat-kaart">
+          <div class="stat-label">Volken in beheer</div>
+          <div id="stat-aantal-volken" class="stat-getal">–</div>
+        </div>
+        <div class="stat-kaart">
+          <div class="stat-label">Inspecties dit jaar</div>
+          <div id="stat-aantal-inspecties" class="stat-getal">–</div>
+        </div>
+        <div class="stat-kaart">
+          <div class="stat-label">Gem. varroatelling</div>
+          <div id="stat-gem-varroa" class="stat-getal">–</div>
+        </div>
+        <div class="stat-kaart">
+          <div class="stat-label">Actieve zwermalarms</div>
+          <div id="stat-zwermalarms" class="stat-getal">–</div>
+        </div>
+        <div class="stat-kaart">
+          <div class="stat-label">Honingoogst dit jaar</div>
+          <div id="stat-honingoogst" class="stat-getal">–</div>
+        </div>
+      </div>
+
+      <div class="sectie-titel">Inspecties per maand</div>
+      <div class="grafiek-kaart">
+        <div class="grafiek-vlak"><canvas id="grafiek-dashboard-maand"></canvas></div>
+      </div>
+
+      <div class="sectie-titel">Weer & gedrag</div>
+      <div id="weer-inzicht-lijst"></div>
+      <div id="weer-inzicht-leeg" class="lege-staat" style="display:none; padding:20px 10px;">
+        <p>Nog te weinig inspecties met weergegevens om een verband te kunnen laten zien.</p>
+      </div>
+
+      <div class="sectie-titel">Volken die aandacht nodig hebben</div>
+      <div id="dashboard-aandacht-lijst" class="volk-lijst"></div>
+      <div id="dashboard-geen-aandacht" class="lege-staat" style="display:none; padding:24px 10px;">
+        <p>Geen van je volken heeft op dit moment een zwermalarm of gezondheidssignaal. 🎉</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pop-up: taak plannen -->
+  <div id="taak-popup" class="modal-overlay" style="display:none;">
+    <div class="modal-kaart">
+      <h3 style="margin-bottom:14px;">Taak plannen</h3>
+      <div class="veld">
+        <label>Type taak</label>
+        <div class="keuze-groep" id="groep-taak-type">
+          <button type="button" class="keuze-btn" data-waarde="varroabehandeling" onclick="kiesOptie('groep-taak-type', this)">🐜 Varroabehandeling</button>
+          <button type="button" class="keuze-btn" data-waarde="wintervoer" onclick="kiesOptie('groep-taak-type', this)">🍯 Wintervoer</button>
+          <button type="button" class="keuze-btn" data-waarde="anders" onclick="kiesOptie('groep-taak-type', this)">📌 Anders</button>
+        </div>
+      </div>
+      <div class="veld">
+        <label for="input-taak-datum">Datum</label>
+        <input type="date" id="input-taak-datum">
+      </div>
+      <div class="veld" style="margin-bottom:0;">
+        <label for="input-taak-notitie">Notitie (optioneel)</label>
+        <input type="text" id="input-taak-notitie" placeholder="Bijv. eerste behandeling van het seizoen">
+      </div>
+      <div style="display:flex; gap:8px; margin-top:16px;">
+        <button class="knop-secundair" onclick="sluitTaakPopup()">Annuleren</button>
+        <button class="knop-primair" onclick="taakOpslaan()">Plannen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pop-up: foto uitvergroot -->
+  <div id="foto-lightbox" class="modal-overlay" style="display:none; background:rgba(0,0,0,0.8);" onclick="sluitFotoLightbox()">
+    <img id="foto-lightbox-img" style="max-width:100%; max-height:88vh; border-radius:12px;" onclick="event.stopPropagation()">
+  </div>
+
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  // ===== Gegevensopslag (lokaal in de browser, geen server/account) =====
+  const OPSLAG_SLEUTEL = 'bijenapp_volken';
+
+  function laadVolken(){
+    const ruw = localStorage.getItem(OPSLAG_SLEUTEL);
+    return ruw ? JSON.parse(ruw) : [];
+  }
+  function bewaarVolken(volken){
+    localStorage.setItem(OPSLAG_SLEUTEL, JSON.stringify(volken));
+  }
+
+  // ===== Back-up: exporteren en herstellen =====
+  function exporteerBackup(){
+    const data = JSON.stringify(volken, null, 2);
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const vandaag = new Date().toISOString().split('T')[0];
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `bijenapp-backup-${vandaag}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  function herstelBackup(event){
+    const bestand = event.target.files[0];
+    event.target.value = ''; // zodat hetzelfde bestand later opnieuw gekozen kan worden
+    if(!bestand) return;
+
+    const lezer = new FileReader();
+    lezer.onload = (e) => {
+      let ingelezenData;
+      try{
+        ingelezenData = JSON.parse(e.target.result);
+        if(!Array.isArray(ingelezenData)) throw new Error('ongeldig formaat');
+      } catch(err){
+        alert('Dit bestand kon niet worden herkend als een geldige ImkerApp back-up.');
+        return;
+      }
+      const aantalVolken = ingelezenData.length;
+      const bevestigd = confirm(`Dit vervangt al je huidige gegevens in deze browser door de back-up (${aantalVolken} volk/volken). Dit kan niet ongedaan worden gemaakt. Doorgaan?`);
+      if(!bevestigd) return;
+
+      volken = ingelezenData;
+      bewaarVolken(volken);
+      renderOverzicht();
+      alert('Back-up hersteld!');
+    };
+    lezer.onerror = () => alert('Het bestand kon niet worden gelezen.');
+    lezer.readAsText(bestand);
+  }
+
+  let volken = laadVolken();
+  let huidigVolkId = null;
+
+  // ===== Navigatie tussen schermen =====
+  function toonScherm(id){
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('actief'));
+    document.getElementById(id).classList.add('actief');
+    if(id === 'scherm-overzicht'){ renderOverzicht(); }
+  }
+
+  function toonNieuwVolkScherm(){
+    document.getElementById('input-volk-naam').value = '';
+    document.getElementById('input-volk-locatie').value = '';
+    document.getElementById('input-ras').value = '';
+    document.getElementById('input-ras-overig').value = '';
+    document.getElementById('input-ras-overig').style.display = 'none';
+    document.getElementById('input-moergeneratie').value = '';
+    document.getElementById('input-moerjaar').value = '';
+    toonScherm('scherm-nieuw-volk');
+    setTimeout(initMiniKaartNieuw, 50);
+  }
+
+  function wisselRasVeld(){
+    const select = document.getElementById('input-ras');
+    document.getElementById('input-ras-overig').style.display = select.value === 'overig' ? 'block' : 'none';
+  }
+
+  function wisselRasVeldBewerken(){
+    const select = document.getElementById('bewerk-ras');
+    document.getElementById('bewerk-ras-overig').style.display = select.value === 'overig' ? 'block' : 'none';
+  }
+
+  // ===== Moerwissel-sectie in het inspectieformulier =====
+  function wisselMoerwisselSectie(){
+    const aangevinkt = document.getElementById('input-moerwissel').checked;
+    document.getElementById('moerwissel-item').classList.toggle('aangevinkt', aangevinkt);
+    document.getElementById('moerwissel-details').style.display = aangevinkt ? 'block' : 'none';
+    if(!aangevinkt){
+      // Selectie en subvelden resetten als het vinkje weer uit gaat
+      document.querySelectorAll('#groep-moerwissel-type .keuze-btn').forEach(b => b.classList.remove('geselecteerd'));
+      document.getElementById('moerwissel-stil-uitleg').style.display = 'none';
+      document.getElementById('moerwissel-nieuw-velden').style.display = 'none';
+    }
+  }
+
+  function kiesMoerwisselType(knop){
+    document.querySelectorAll('#groep-moerwissel-type .keuze-btn').forEach(b => b.classList.remove('geselecteerd'));
+    knop.classList.add('geselecteerd');
+    const type = knop.dataset.waarde;
+    document.getElementById('moerwissel-stil-uitleg').style.display = type === 'stil' ? 'block' : 'none';
+    document.getElementById('moerwissel-nieuw-velden').style.display = type === 'nieuw' ? 'block' : 'none';
+  }
+
+  function wisselMoerwisselRasVeld(){
+    const select = document.getElementById('input-moerwissel-ras');
+    document.getElementById('input-moerwissel-ras-overig').style.display = select.value === 'overig' ? 'block' : 'none';
+  }
+
+  // ===== Volk bewerken =====
+  function toonBewerkVolkScherm(){
+    const volk = volken.find(v => v.id === huidigVolkId);
+    document.getElementById('bewerk-naam').value = volk.naam || '';
+    document.getElementById('bewerk-locatie').value = volk.locatie || '';
+    document.getElementById('bewerk-moergeneratie').value = volk.moergeneratie || '';
+    document.getElementById('bewerk-moerjaar').value = volk.moerjaar || '';
+
+    const rasBekend = ['Carnica','Buckfast','Ligustica','Mellifera','Caucasica'];
+    const rasSelect = document.getElementById('bewerk-ras');
+    const rasOverigInput = document.getElementById('bewerk-ras-overig');
+    if(!volk.ras){
+      rasSelect.value = '';
+      rasOverigInput.style.display = 'none';
+      rasOverigInput.value = '';
+    } else if(rasBekend.includes(volk.ras)){
+      rasSelect.value = volk.ras;
+      rasOverigInput.style.display = 'none';
+      rasOverigInput.value = '';
+    } else {
+      rasSelect.value = 'overig';
+      rasOverigInput.style.display = 'block';
+      rasOverigInput.value = volk.ras;
+    }
+
+    toonScherm('scherm-bewerk-volk');
+  }
+
+  function volkWijzigingenOpslaan(){
+    const naam = document.getElementById('bewerk-naam').value.trim();
+    if(!naam){ alert('Geef je volk een naam of nummer.'); return; }
+
+    const volk = volken.find(v => v.id === huidigVolkId);
+    const rasSelectie = document.getElementById('bewerk-ras').value;
+
+    volk.naam = naam;
+    volk.locatie = document.getElementById('bewerk-locatie').value.trim();
+    volk.ras = rasSelectie === 'overig' ? document.getElementById('bewerk-ras-overig').value.trim() : rasSelectie;
+    volk.moergeneratie = document.getElementById('bewerk-moergeneratie').value;
+    volk.moerjaar = document.getElementById('bewerk-moerjaar').value || null;
+
+    bewaarVolken(volken);
+    toonVolkDetail(huidigVolkId);
+  }
+
+  // ===== Zoeken =====
+  function toonZoekScherm(){
+    document.getElementById('zoek-input').value = '';
+    document.getElementById('zoek-resultaten').innerHTML = '<p class="kaart-hint">Typ een zoekterm om te beginnen.</p>';
+    toonScherm('scherm-zoeken');
+    setTimeout(() => document.getElementById('zoek-input').focus(), 100);
+  }
+
+  function voerZoekopdrachtUit(){
+    const term = document.getElementById('zoek-input').value.trim().toLowerCase();
+    const resultatenEl = document.getElementById('zoek-resultaten');
+
+    if(!term){
+      resultatenEl.innerHTML = '<p class="kaart-hint">Typ een zoekterm om te beginnen.</p>';
+      return;
+    }
+
+    volken = laadVolken();
+    const gevonden = [];
+
+    volken.forEach(volk => {
+      if(volk.naam.toLowerCase().includes(term) || (volk.locatie || '').toLowerCase().includes(term)){
+        gevonden.push({ volk, type: 'volk' });
+      }
+      volk.inspecties.forEach(insp => {
+        const doorzoekbaar = [
+          insp.notitie || '',
+          (insp.gezondheid || []).map(gezondheidLabel).join(' '),
+          insp.moerwisselType === 'stil' ? 'stille moerwissel' : '',
+          insp.moerwisselType === 'nieuw' ? 'nieuwe koningin ' + (insp.nieuweRas || '') : ''
+        ].join(' ').toLowerCase();
+        if(doorzoekbaar.includes(term)){
+          gevonden.push({ volk, insp, type: 'inspectie' });
+        }
+      });
+    });
+
+    if(gevonden.length === 0){
+      resultatenEl.innerHTML = '<p class="kaart-hint">Geen resultaten gevonden.</p>';
+      return;
+    }
+
+    resultatenEl.innerHTML = '';
+    gevonden.forEach(r => {
+      const kaart = document.createElement('div');
+      kaart.className = 'volk-kaart';
+      kaart.style.marginBottom = '10px';
+      kaart.onclick = () => toonVolkDetail(r.volk.id);
+      if(r.type === 'volk'){
+        kaart.innerHTML = `
+          <div class="volk-info">
+            <h3>${escapeHtml(r.volk.naam)}</h3>
+            <div class="sub">Volk${r.volk.locatie ? ' · ' + escapeHtml(r.volk.locatie) : ''}</div>
+          </div>
+        `;
+      } else {
+        const snippet = (r.insp.notitie || '').slice(0, 70);
+        kaart.innerHTML = `
+          <div class="volk-info">
+            <h3>${escapeHtml(r.volk.naam)}</h3>
+            <div class="sub">${formatDatum(r.insp.datum)}${snippet ? ' — "' + escapeHtml(snippet) + (r.insp.notitie.length > 70 ? '...' : '') + '"' : ''}</div>
+          </div>
+        `;
+      }
+      resultatenEl.appendChild(kaart);
+    });
+  }
+
+  // ===== Dashboard / jaaroverzicht =====
+  let dashboardJaar = null;
+  let grafiekDashboardMaand = null;
+
+  function toonDashboardScherm(){
+    dashboardJaar = new Date().getFullYear();
+    renderDashboard();
+    toonScherm('scherm-dashboard');
+  }
+
+  function dashboardWisselJaar(delta){
+    dashboardJaar += delta;
+    renderDashboard();
+  }
+
+  function renderWeerInzicht(){
+    const alleInspecties = [];
+    volken.forEach(volk => volk.inspecties.forEach(insp => { if(insp.weer) alleInspecties.push(insp); }));
+
+    const lijstEl = document.getElementById('weer-inzicht-lijst');
+    const leegEl = document.getElementById('weer-inzicht-leeg');
+    lijstEl.innerHTML = '';
+
+    if(alleInspecties.length < 3){
+      leegEl.style.display = 'block';
+      leegEl.querySelector('p').textContent = 'Nog te weinig inspecties met weergegevens om een verband te kunnen laten zien.';
+      return;
+    }
+
+    const perWeer = {};
+    alleInspecties.forEach(insp => {
+      const omschrijving = insp.weer.omschrijving;
+      if(!perWeer[omschrijving]) perWeer[omschrijving] = [];
+      perWeer[omschrijving].push(insp);
+    });
+
+    let geldigeCategorieen = 0;
+    Object.keys(perWeer).forEach(omschrijving => {
+      const groep = perWeer[omschrijving];
+      if(groep.length < 2) return; // te weinig data voor een betrouwbare indicatie
+      geldigeCategorieen++;
+
+      const aantal = groep.length;
+      const felAantal = groep.filter(i => i.temperament === 'fel').length;
+      const issueAantal = groep.filter(i => (i.gezondheid && i.gezondheid.some(g => g !== 'geen')) || (i.varroa != null && i.varroa >= VARROA_LET_OP_DREMPEL)).length;
+      const zwermAantal = groep.filter(i => i.gezondheid && i.gezondheid.includes('zwermneiging')).length;
+
+      const felPct = Math.round((felAantal / aantal) * 100);
+      const issuePct = Math.round((issueAantal / aantal) * 100);
+      const zwermPct = Math.round((zwermAantal / aantal) * 100);
+
+      const item = document.createElement('div');
+      item.className = 'agenda-taak-item';
+      item.innerHTML = `
+        <div class="agenda-taak-info">
+          <div class="agenda-taak-datum">${weerIcoon(groep[0].weer.weerCode)} ${omschrijving} <span style="font-weight:400; color:var(--bruin-zacht); font-size:0.8rem;">(${aantal} inspecties)</span></div>
+          <div class="agenda-taak-type">Fel temperament: ${felPct}% · Gezondheidssignaal: ${issuePct}%${zwermAantal > 0 ? ' · Zwermneiging: ' + zwermPct + '%' : ''}</div>
+        </div>
+      `;
+      lijstEl.appendChild(item);
+    });
+
+    if(geldigeCategorieen === 0){
+      leegEl.style.display = 'block';
+      leegEl.querySelector('p').textContent = 'Nog te weinig inspecties per weertype om een betrouwbaar verband te tonen.';
+    } else {
+      leegEl.style.display = 'none';
+    }
+  }
+
+  function renderDashboard(){
+    volken = laadVolken();
+    document.getElementById('dashboard-jaar-label').textContent = dashboardJaar;
+
+    // Alle inspecties van dit jaar verzamelen, met een verwijzing naar hun volk
+    const inspectiesDitJaar = [];
+    volken.forEach(volk => {
+      volk.inspecties.forEach(insp => {
+        if(new Date(insp.datum).getFullYear() === dashboardJaar){
+          inspectiesDitJaar.push({ ...insp, volkNaam: volk.naam });
+        }
+      });
+    });
+
+    document.getElementById('stat-aantal-volken').textContent = volken.length;
+    document.getElementById('stat-aantal-inspecties').textContent = inspectiesDitJaar.length;
+
+    const varroaWaarden = inspectiesDitJaar.map(i => i.varroa).filter(v => v != null);
+    document.getElementById('stat-gem-varroa').textContent = varroaWaarden.length
+      ? (varroaWaarden.reduce((a,b) => a+b, 0) / varroaWaarden.length).toFixed(1)
+      : '–';
+
+    const actieveAlarms = volken.filter(v => heeftZwermAlarm(v)).length;
+    document.getElementById('stat-zwermalarms').textContent = actieveAlarms;
+
+    const oogstDitJaar = volken.reduce((som, volk) => {
+      const oogstVanVolkDitJaar = (volk.oogsten || [])
+        .filter(o => new Date(o.datum).getFullYear() === dashboardJaar)
+        .reduce((deelsom, o) => deelsom + o.kg, 0);
+      return som + oogstVanVolkDitJaar;
+    }, 0);
+    document.getElementById('stat-honingoogst').textContent = oogstDitJaar.toFixed(1) + ' kg';
+
+    // Grafiek: inspecties per maand
+    const perMaand = new Array(12).fill(0);
+    inspectiesDitJaar.forEach(i => { perMaand[new Date(i.datum).getMonth()]++; });
+    const maandLabelsKort = ['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
+
+    if(grafiekDashboardMaand) grafiekDashboardMaand.destroy();
+    grafiekDashboardMaand = new Chart(document.getElementById('grafiek-dashboard-maand'), {
+      type: 'bar',
+      data: {
+        labels: maandLabelsKort,
+        datasets: [{
+          data: perMaand,
+          backgroundColor: '#FFC107',
+          borderRadius: 4,
+          maxBarThickness: 24
+        }]
+      },
+      options: grafiekOpties(0, undefined, 1)
+    });
+
+    renderWeerInzicht();
+
+    // Volken die aandacht nodig hebben
+    const aandachtLijst = document.getElementById('dashboard-aandacht-lijst');
+    const geenAandachtEl = document.getElementById('dashboard-geen-aandacht');
+    aandachtLijst.innerHTML = '';
+
+    const volkenMetAandacht = volken.filter(v => {
+      const status = bepaalStatus(v);
+      return status === 'zwerm-alarm' || status === 'probleem';
+    });
+
+    if(volkenMetAandacht.length === 0){
+      geenAandachtEl.style.display = 'block';
+    } else {
+      geenAandachtEl.style.display = 'none';
+      volkenMetAandacht.forEach(volk => {
+        const status = bepaalStatus(volk);
+        const kaart = document.createElement('div');
+        kaart.className = 'volk-kaart';
+        kaart.onclick = () => toonVolkDetail(volk.id);
+        const tekst = status === 'zwerm-alarm' ? 'Zwermalarm actief' : 'Gezondheidssignaal bij laatste inspectie';
+        kaart.innerHTML = `
+          <div class="volk-info">
+            <h3>${escapeHtml(volk.naam)}</h3>
+            <div class="sub" style="color:var(--roest); font-weight:600;">${tekst}</div>
+          </div>
+          <div class="volk-status status-${status}"></div>
+        `;
+        aandachtLijst.appendChild(kaart);
+      });
+    }
+  }
+
+  // ===== Agenda per volk =====
+  const MAAND_NAMEN = ['januari','februari','maart','april','mei','juni','juli','augustus','september','oktober','november','december'];
+  let agendaJaar = null;
+  let agendaMaand = null; // 0-based
+  let huidigeTaakId = null;
+
+  function padGetal(n){ return String(n).padStart(2, '0'); }
+
+  function toonAgendaScherm(){
+    const vandaag = new Date();
+    agendaJaar = vandaag.getFullYear();
+    agendaMaand = vandaag.getMonth();
+    renderAgenda();
+    toonScherm('scherm-agenda');
+  }
+
+  function agendaWisselMaand(delta){
+    agendaMaand += delta;
+    if(agendaMaand < 0){ agendaMaand = 11; agendaJaar--; }
+    if(agendaMaand > 11){ agendaMaand = 0; agendaJaar++; }
+    renderAgenda();
+  }
+
+  function renderAgenda(){
+    const volk = volken.find(v => v.id === huidigVolkId);
+    document.getElementById('agenda-titel').textContent = volk.naam + ' — agenda';
+    document.getElementById('agenda-maand-label').textContent = `${MAAND_NAMEN[agendaMaand]} ${agendaJaar}`;
+
+    if(!volk.taken) volk.taken = [];
+
+    // Kalenderraster opbouwen
+    const grid = document.getElementById('agenda-grid');
+    grid.innerHTML = '';
+    const eersteDag = new Date(agendaJaar, agendaMaand, 1);
+    const startOffset = (eersteDag.getDay() + 6) % 7; // maandag = 0
+    const aantalDagen = new Date(agendaJaar, agendaMaand + 1, 0).getDate();
+    const vandaagStr = new Date().toISOString().split('T')[0];
+
+    for(let i = 0; i < startOffset; i++){
+      const leeg = document.createElement('div');
+      leeg.className = 'agenda-dag leeg';
+      grid.appendChild(leeg);
+    }
+
+    for(let dag = 1; dag <= aantalDagen; dag++){
+      const datumStr = `${agendaJaar}-${padGetal(agendaMaand + 1)}-${padGetal(dag)}`;
+      const heeftInspectie = volk.inspecties.some(i => i.datum === datumStr);
+      const takenOpDag = volk.taken.filter(t => t.datum === datumStr);
+
+      const cel = document.createElement('div');
+      cel.className = 'agenda-dag' + (datumStr === vandaagStr ? ' vandaag' : '');
+      let stippenHtml = '<div class="agenda-stippen">';
+      if(heeftInspectie) stippenHtml += `<span class="agenda-stip" style="background:var(--groen);"></span>`;
+      if(takenOpDag.length > 0) stippenHtml += `<span class="agenda-stip" style="background:var(--goud);"></span>`;
+      stippenHtml += '</div>';
+      cel.innerHTML = `<span>${dag}</span>${stippenHtml}`;
+      grid.appendChild(cel);
+    }
+
+    // Automatische suggestie op basis van laatste varroatelling
+    const suggestieEl = document.getElementById('agenda-suggestie');
+    const laatsteInspectie = volk.inspecties[volk.inspecties.length - 1];
+    const vandaag = new Date(); vandaag.setHours(0,0,0,0);
+    const heeftOpenBehandeling = volk.taken.some(t => t.type === 'varroabehandeling' && !t.afgerond && new Date(t.datum) >= vandaag);
+
+    if(laatsteInspectie && laatsteInspectie.varroa != null && laatsteInspectie.varroa >= VARROA_LET_OP_DREMPEL && !heeftOpenBehandeling){
+      suggestieEl.style.display = 'flex';
+      document.getElementById('agenda-suggestie-tekst').innerHTML =
+        `De laatste varroatelling (${laatsteInspectie.varroa}) lag op of boven de aandachtsgrens — overweeg een behandeling te plannen. <span class="agenda-taak-link" style="text-decoration:underline;" onclick="toonNieuweTaakPopup('varroabehandeling')">Nu plannen</span>`;
+    } else {
+      suggestieEl.style.display = 'none';
+    }
+
+    // Takenlijst
+    const lijstEl = document.getElementById('agenda-taken-lijst');
+    const legeStaatEl = document.getElementById('agenda-geen-taken');
+    lijstEl.innerHTML = '';
+    const takenGesorteerd = [...volk.taken].sort((a,b) => new Date(a.datum) - new Date(b.datum));
+
+    if(takenGesorteerd.length === 0){
+      legeStaatEl.style.display = 'block';
+    } else {
+      legeStaatEl.style.display = 'none';
+      const taakLabels = { varroabehandeling: '🐜 Varroabehandeling', wintervoer: '🍯 Wintervoer geven', anders: '📌 Taak' };
+      takenGesorteerd.forEach(taak => {
+        const item = document.createElement('div');
+        item.className = 'agenda-taak-item' + (taak.afgerond ? ' afgerond' : '');
+        item.innerHTML = `
+          <input type="checkbox" ${taak.afgerond ? 'checked' : ''} onchange="taakAfgerondWisselen('${taak.id}')" style="margin-top:3px; width:18px; height:18px; accent-color:var(--groen); flex-shrink:0;">
+          <div class="agenda-taak-info">
+            <div class="agenda-taak-datum">${formatDatum(taak.datum)}</div>
+            <div class="agenda-taak-type">${taakLabels[taak.type] || taak.type}</div>
+            ${taak.notitie ? `<div class="agenda-taak-notitie">"${escapeHtml(taak.notitie)}"</div>` : ''}
+          </div>
+          <div class="agenda-taak-acties">
+            <span class="agenda-taak-link" onclick="taakVerwijderen('${taak.id}')">Verwijderen</span>
+          </div>
+        `;
+        lijstEl.appendChild(item);
+      });
+    }
+  }
+
+  function toonNieuweTaakPopup(voorkeurType){
+    document.querySelectorAll('#groep-taak-type .keuze-btn').forEach(b => b.classList.remove('geselecteerd'));
+    if(voorkeurType){
+      const btn = document.querySelector(`#groep-taak-type .keuze-btn[data-waarde="${voorkeurType}"]`);
+      if(btn) btn.classList.add('geselecteerd');
+    }
+    document.getElementById('input-taak-datum').value = new Date().toISOString().split('T')[0];
+    document.getElementById('input-taak-notitie').value = '';
+    document.getElementById('taak-popup').style.display = 'flex';
+  }
+
+  function sluitTaakPopup(){
+    document.getElementById('taak-popup').style.display = 'none';
+  }
+
+  function taakOpslaan(){
+    const typeBtn = document.querySelector('#groep-taak-type .geselecteerd');
+    const datum = document.getElementById('input-taak-datum').value;
+    if(!typeBtn){ alert('Kies een type taak.'); return; }
+    if(!datum){ alert('Kies een datum.'); return; }
+
+    const volk = volken.find(v => v.id === huidigVolkId);
+    if(!volk.taken) volk.taken = [];
+    volk.taken.push({
+      id: 'taak_' + Math.random().toString(36).slice(2) + Date.now(),
+      type: typeBtn.dataset.waarde,
+      datum: datum,
+      notitie: document.getElementById('input-taak-notitie').value.trim(),
+      afgerond: false
+    });
+    bewaarVolken(volken);
+    sluitTaakPopup();
+    renderAgenda();
+  }
+
+  function taakVerwijderen(taakId){
+    if(!confirm('Deze geplande taak verwijderen?')) return;
+    const volk = volken.find(v => v.id === huidigVolkId);
+    volk.taken = volk.taken.filter(t => t.id !== taakId);
+    bewaarVolken(volken);
+    renderAgenda();
+  }
+
+  function taakAfgerondWisselen(taakId){
+    const volk = volken.find(v => v.id === huidigVolkId);
+    const taak = volk.taken.find(t => t.id === taakId);
+    if(taak){ taak.afgerond = !taak.afgerond; bewaarVolken(volken); renderAgenda(); }
+  }
+
+  // ===== Foto's bij een inspectie =====
+  const MAX_FOTOS_PER_INSPECTIE = 3;
+  let huidigeFotos = [];
+
+  function verkleinAfbeelding(bestand){
+    return new Promise((resolve, reject) => {
+      const lezer = new FileReader();
+      lezer.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const maxBreedte = 900;
+          let breedte = img.width;
+          let hoogte = img.height;
+          if(breedte > maxBreedte){
+            hoogte = Math.round(hoogte * (maxBreedte / breedte));
+            breedte = maxBreedte;
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = breedte;
+          canvas.height = hoogte;
+          canvas.getContext('2d').drawImage(img, 0, 0, breedte, hoogte);
+          resolve(canvas.toDataURL('image/jpeg', 0.7));
+        };
+        img.onerror = () => reject(new Error('Kon de afbeelding niet laden.'));
+        img.src = e.target.result;
+      };
+      lezer.onerror = () => reject(new Error('Kon het bestand niet lezen.'));
+      lezer.readAsDataURL(bestand);
+    });
+  }
+
+  async function fotoToevoegen(event){
+    const bestanden = [...event.target.files];
+    event.target.value = ''; // zodat hetzelfde bestand later opnieuw gekozen kan worden
+
+    for(const bestand of bestanden){
+      if(huidigeFotos.length >= MAX_FOTOS_PER_INSPECTIE){
+        alert(`Je kunt maximaal ${MAX_FOTOS_PER_INSPECTIE} foto's per inspectie toevoegen.`);
+        break;
+      }
+      try{
+        const dataUrl = await verkleinAfbeelding(bestand);
+        huidigeFotos.push(dataUrl);
+      } catch(err){
+        alert('Deze foto kon niet worden toegevoegd.');
+      }
+    }
+    renderFotoPreviews();
+  }
+
+  function fotoVerwijderen(index){
+    huidigeFotos.splice(index, 1);
+    renderFotoPreviews();
+  }
+
+  function renderFotoPreviews(){
+    const container = document.getElementById('foto-previews');
+    container.innerHTML = '';
+    huidigeFotos.forEach((dataUrl, index) => {
+      const div = document.createElement('div');
+      div.className = 'foto-thumb';
+      div.innerHTML = `
+        <img src="${dataUrl}" onclick="toonFotoGroot('${dataUrl}')">
+        <span class="foto-verwijder" onclick="fotoVerwijderen(${index})">×</span>
+      `;
+      container.appendChild(div);
+    });
+  }
+
+  function toonFotoGroot(dataUrl){
+    document.getElementById('foto-lightbox-img').src = dataUrl;
+    document.getElementById('foto-lightbox').style.display = 'flex';
+  }
+
+  function sluitFotoLightbox(){
+    document.getElementById('foto-lightbox').style.display = 'none';
+  }
+
+  let huidigeInspectieId = null; // null = nieuwe inspectie, anders wordt een bestaande bewerkt
+  let huidigeWeerData = null; // weergegevens die bij deze inspectie worden opgeslagen
+
+  // ===== Weer ophalen (Open-Meteo, gratis, geen API-sleutel nodig) =====
+  function weerOmschrijving(code){
+    if(code === 0) return 'Helder';
+    if([1,2,3].includes(code)) return 'Bewolkt';
+    if([45,48].includes(code)) return 'Mist';
+    if([51,53,55,56,57].includes(code)) return 'Motregen';
+    if([61,63,65,66,67].includes(code)) return 'Regen';
+    if([71,73,75,77].includes(code)) return 'Sneeuw';
+    if([80,81,82].includes(code)) return 'Buien';
+    if([85,86].includes(code)) return 'Sneeuwbuien';
+    if([95,96,99].includes(code)) return 'Onweer';
+    return 'Onbekend';
+  }
+
+  function weerIcoon(code){
+    if(code === 0) return '☀️';
+    if([1,2,3].includes(code)) return '⛅';
+    if([45,48].includes(code)) return '🌫️';
+    if([51,53,55,56,57,61,63,65,66,67,80,81,82].includes(code)) return '🌧️';
+    if([71,73,75,77,85,86].includes(code)) return '❄️';
+    if([95,96,99].includes(code)) return '⛈️';
+    return '🌤️';
+  }
+
+  async function haalWeerOp(){
+    huidigeWeerData = null;
+    const weerInfoEl = document.getElementById('weer-info');
+    const volk = volken.find(v => v.id === huidigVolkId);
+
+    if(!volk.lat || !volk.lng){
+      weerInfoEl.textContent = 'Geen locatie ingesteld voor dit volk — stel eerst een positie op de kaart in om het weer te kunnen ophalen.';
+      return;
+    }
+
+    weerInfoEl.textContent = 'Weer wordt opgehaald...';
+    try{
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${volk.lat}&longitude=${volk.lng}&current=temperature_2m,wind_speed_10m,precipitation,weather_code&timezone=auto`;
+      const response = await fetch(url);
+      if(!response.ok) throw new Error('Weerservice niet bereikbaar');
+      const data = await response.json();
+      const huidig = data.current;
+
+      huidigeWeerData = {
+        temperatuur: Math.round(huidig.temperature_2m),
+        windsnelheid: Math.round(huidig.wind_speed_10m),
+        neerslag: huidig.precipitation,
+        weerCode: huidig.weather_code,
+        omschrijving: weerOmschrijving(huidig.weather_code)
+      };
+
+      weerInfoEl.innerHTML = `${weerIcoon(huidigeWeerData.weerCode)} ${huidigeWeerData.temperatuur}°C, ${huidigeWeerData.omschrijving.toLowerCase()}, wind ${huidigeWeerData.windsnelheid} km/u`;
+    } catch(err){
+      weerInfoEl.textContent = 'Weer kon niet worden opgehaald (geen internetverbinding of de weerservice is niet bereikbaar).';
+    }
+  }
+
+  // ===== Configuratie-popup (broedbakken/honingkamers) bij start van een inspectie =====
+  function toonConfiguratiePopup(){
+    const volk = volken.find(v => v.id === huidigVolkId);
+    document.getElementById('popup-broedbakken').value = volk.aantalBroedbakken != null ? volk.aantalBroedbakken : '';
+    document.getElementById('popup-honingkamers').value = volk.aantalHoningkamers != null ? volk.aantalHoningkamers : '';
+    document.getElementById('configuratie-popup').style.display = 'flex';
+  }
+
+  function sluitConfiguratiePopup(){
+    document.getElementById('configuratie-popup').style.display = 'none';
+    toonNieuweInspectieScherm();
+  }
+
+  function bevestigConfiguratie(){
+    const volk = volken.find(v => v.id === huidigVolkId);
+    const broedbakkenVal = document.getElementById('popup-broedbakken').value;
+    const honingkamersVal = document.getElementById('popup-honingkamers').value;
+    volk.aantalBroedbakken = broedbakkenVal !== '' ? Number(broedbakkenVal) : null;
+    volk.aantalHoningkamers = honingkamersVal !== '' ? Number(honingkamersVal) : null;
+    bewaarVolken(volken);
+    document.getElementById('configuratie-popup').style.display = 'none';
+    toonNieuweInspectieScherm();
+  }
+
+  function toonNieuweInspectieScherm(){
+    huidigeInspectieId = null;
+    document.getElementById('inspectie-form-titel').textContent = 'Nieuwe inspectie';
+    document.getElementById('inspectie-opslaan-knop').textContent = 'Inspectie opslaan';
+    // Formulier resetten
+    document.getElementById('input-datum').value = new Date().toISOString().split('T')[0];
+    document.querySelectorAll('#scherm-nieuwe-inspectie .keuze-btn').forEach(b => b.classList.remove('geselecteerd','goed','matig','slecht'));
+    document.querySelectorAll('#scherm-nieuwe-inspectie .schaal-bol').forEach(b => b.classList.remove('geselecteerd'));
+    document.querySelectorAll('#lijst-gezondheid input').forEach(c => { c.checked = false; c.closest('.checkbox-item').classList.remove('aangevinkt'); });
+    document.getElementById('input-varroa').value = '';
+    document.getElementById('input-notitie').value = '';
+    document.getElementById('input-moerwissel').checked = false;
+    document.getElementById('moerwissel-item').classList.remove('aangevinkt');
+    document.getElementById('moerwissel-details').style.display = 'none';
+    document.getElementById('moerwissel-stil-uitleg').style.display = 'none';
+    document.getElementById('moerwissel-nieuw-velden').style.display = 'none';
+    document.getElementById('input-moerwissel-ras').value = '';
+    document.getElementById('input-moerwissel-ras-overig').value = '';
+    document.getElementById('input-moerwissel-ras-overig').style.display = 'none';
+    document.getElementById('input-moerwissel-generatie').value = '';
+    document.getElementById('input-moerwissel-jaar').value = '';
+    document.getElementById('weer-veld').style.display = 'block';
+    huidigeFotos = [];
+    renderFotoPreviews();
+
+    const volkVoorKopie = volken.find(v => v.id === huidigVolkId);
+    document.getElementById('kopieer-knop-rij').style.display = (volkVoorKopie && volkVoorKopie.inspecties.length > 0) ? 'block' : 'none';
+    document.getElementById('inspectie-verwijder-link').style.display = 'none';
+
+    toonScherm('scherm-nieuwe-inspectie');
+    haalWeerOp();
+  }
+
+  function kopieerVorigeInspectie(){
+    const volk = volken.find(v => v.id === huidigVolkId);
+    if(!volk.inspecties.length) return;
+    const vorige = volk.inspecties[volk.inspecties.length - 1];
+
+    if(vorige.koningin){
+      const btn = document.querySelector(`#groep-koningin .keuze-btn[data-waarde="${vorige.koningin}"]`);
+      if(btn) kiesOptie('groep-koningin', btn);
+    }
+    if(vorige.broednest){
+      const bol = document.querySelector(`#schaal-broednest .schaal-bol[data-waarde="${vorige.broednest}"]`);
+      if(bol) kiesSchaal('schaal-broednest', bol);
+    }
+    if(vorige.voedsel){
+      const btn = document.querySelector(`#groep-voedsel .keuze-btn[data-waarde="${vorige.voedsel}"]`);
+      if(btn) kiesOptie('groep-voedsel', btn, true);
+    }
+    if(vorige.temperament){
+      const btn = document.querySelector(`#groep-temperament .keuze-btn[data-waarde="${vorige.temperament}"]`);
+      if(btn) kiesOptie('groep-temperament', btn, true);
+    }
+    document.getElementById('input-varroa').value = vorige.varroa != null ? vorige.varroa : '';
+    document.querySelectorAll('#lijst-gezondheid input').forEach(c => {
+      const aangevinkt = vorige.gezondheid && vorige.gezondheid.includes(c.value);
+      c.checked = aangevinkt;
+      c.closest('.checkbox-item').classList.toggle('aangevinkt', aangevinkt);
+    });
+  }
+
+  function bewerkInspectie(inspectieId){
+    const volk = volken.find(v => v.id === huidigVolkId);
+    const insp = volk.inspecties.find(i => i.id === inspectieId);
+    if(!insp) return;
+    huidigeInspectieId = inspectieId;
+
+    huidigeFotos = insp.fotos ? [...insp.fotos] : [];
+    renderFotoPreviews();
+    document.getElementById('kopieer-knop-rij').style.display = 'none';
+    document.getElementById('inspectie-verwijder-link').style.display = 'block';
+
+    huidigeWeerData = insp.weer || null;
+    const weerInfoEl = document.getElementById('weer-info');
+    if(insp.weer){
+      weerInfoEl.innerHTML = `${weerIcoon(insp.weer.weerCode)} ${insp.weer.temperatuur}°C, ${insp.weer.omschrijving.toLowerCase()}, wind ${insp.weer.windsnelheid} km/u <span style="opacity:0.7;">(vastgelegd bij deze inspectie)</span>`;
+    } else {
+      weerInfoEl.textContent = 'Voor deze inspectie is geen weer vastgelegd.';
+    }
+
+    document.getElementById('inspectie-form-titel').textContent = 'Inspectie bewerken';
+    document.getElementById('inspectie-opslaan-knop').textContent = 'Wijzigingen opslaan';
+
+    document.getElementById('input-datum').value = insp.datum;
+
+    document.querySelectorAll('#scherm-nieuwe-inspectie .keuze-btn').forEach(b => b.classList.remove('geselecteerd','goed','matig','slecht'));
+    document.querySelectorAll('#scherm-nieuwe-inspectie .schaal-bol').forEach(b => b.classList.remove('geselecteerd'));
+
+    if(insp.koningin){
+      const btn = document.querySelector(`#groep-koningin .keuze-btn[data-waarde="${insp.koningin}"]`);
+      if(btn) kiesOptie('groep-koningin', btn);
+    }
+    if(insp.broednest){
+      const bol = document.querySelector(`#schaal-broednest .schaal-bol[data-waarde="${insp.broednest}"]`);
+      if(bol) kiesSchaal('schaal-broednest', bol);
+    }
+    if(insp.voedsel){
+      const btn = document.querySelector(`#groep-voedsel .keuze-btn[data-waarde="${insp.voedsel}"]`);
+      if(btn) kiesOptie('groep-voedsel', btn, true);
+    }
+    if(insp.temperament){
+      const btn = document.querySelector(`#groep-temperament .keuze-btn[data-waarde="${insp.temperament}"]`);
+      if(btn) kiesOptie('groep-temperament', btn, true);
+    }
+
+    document.getElementById('input-varroa').value = insp.varroa != null ? insp.varroa : '';
+    document.getElementById('input-notitie').value = insp.notitie || '';
+
+    const moerwisselAan = !!insp.moerwissel;
+    document.getElementById('input-moerwissel').checked = moerwisselAan;
+    document.getElementById('moerwissel-item').classList.toggle('aangevinkt', moerwisselAan);
+    document.getElementById('moerwissel-details').style.display = moerwisselAan ? 'block' : 'none';
+    document.getElementById('moerwissel-stil-uitleg').style.display = 'none';
+    document.getElementById('moerwissel-nieuw-velden').style.display = 'none';
+    document.querySelectorAll('#groep-moerwissel-type .keuze-btn').forEach(b => b.classList.remove('geselecteerd'));
+    document.getElementById('input-moerwissel-ras').value = '';
+    document.getElementById('input-moerwissel-ras-overig').value = '';
+    document.getElementById('input-moerwissel-ras-overig').style.display = 'none';
+    document.getElementById('input-moerwissel-generatie').value = '';
+    document.getElementById('input-moerwissel-jaar').value = '';
+
+    if(moerwisselAan && insp.moerwisselType){
+      const typeBtn = document.querySelector(`#groep-moerwissel-type .keuze-btn[data-waarde="${insp.moerwisselType}"]`);
+      if(typeBtn) kiesMoerwisselType(typeBtn);
+      if(insp.moerwisselType === 'nieuw'){
+        const rasBekend = ['Carnica','Buckfast','Ligustica','Mellifera','Caucasica'];
+        if(insp.nieuweRas && rasBekend.includes(insp.nieuweRas)){
+          document.getElementById('input-moerwissel-ras').value = insp.nieuweRas;
+        } else if(insp.nieuweRas){
+          document.getElementById('input-moerwissel-ras').value = 'overig';
+          document.getElementById('input-moerwissel-ras-overig').style.display = 'block';
+          document.getElementById('input-moerwissel-ras-overig').value = insp.nieuweRas;
+        }
+        document.getElementById('input-moerwissel-generatie').value = insp.nieuweMoergeneratie || '';
+        document.getElementById('input-moerwissel-jaar').value = insp.nieuwMoerjaar || '';
+      }
+    }
+
+    document.querySelectorAll('#lijst-gezondheid input').forEach(c => {
+      const aangevinkt = insp.gezondheid && insp.gezondheid.includes(c.value);
+      c.checked = aangevinkt;
+      c.closest('.checkbox-item').classList.toggle('aangevinkt', aangevinkt);
+    });
+
+    toonScherm('scherm-nieuwe-inspectie');
+  }
+
+  // ===== Keuzeknoppen (koningin gezien, voedsel, temperament) =====
+  function kiesOptie(groepId, knop, gekleurd){
+    document.querySelectorAll('#' + groepId + ' .keuze-btn').forEach(b => b.classList.remove('geselecteerd','goed','matig','slecht'));
+    knop.classList.add('geselecteerd');
+    if(gekleurd){
+      const waarde = knop.dataset.waarde;
+      const goedeWaarden = ['ja','voldoende','veel','rustig','normaal'];
+      const matigeWaarden = ['weinig'];
+      if(goedeWaarden.includes(waarde)) knop.classList.add('goed');
+      else if(matigeWaarden.includes(waarde)) knop.classList.add('matig');
+      else knop.classList.add('slecht');
+    }
+  }
+  function kiesSchaal(groepId, bol){
+    document.querySelectorAll('#' + groepId + ' .schaal-bol').forEach(b => b.classList.remove('geselecteerd'));
+    bol.classList.add('geselecteerd');
+  }
+
+  // Checkbox-styling bijwerken bij aanvinken
+  document.getElementById('lijst-gezondheid').addEventListener('change', (e) => {
+    e.target.closest('.checkbox-item').classList.toggle('aangevinkt', e.target.checked);
+  });
+
+  // ===== Volk toevoegen / verwijderen =====
+  function volkOpslaan(){
+    const naam = document.getElementById('input-volk-naam').value.trim();
+    if(!naam){ alert('Geef je volk een naam of nummer.'); return; }
+    const locatie = document.getElementById('input-volk-locatie').value.trim();
+    const rasSelectie = document.getElementById('input-ras').value;
+    const ras = rasSelectie === 'overig' ? document.getElementById('input-ras-overig').value.trim() : rasSelectie;
+    const moergeneratie = document.getElementById('input-moergeneratie').value;
+    const moerjaar = document.getElementById('input-moerjaar').value || null;
+    const nieuwVolk = {
+      id: 'volk_' + Date.now(),
+      naam: naam,
+      locatie: locatie,
+      ras: ras,
+      moergeneratie: moergeneratie,
+      moerjaar: moerjaar,
+      lat: nieuwVolkPositie ? nieuwVolkPositie.lat : null,
+      lng: nieuwVolkPositie ? nieuwVolkPositie.lng : null,
+      inspecties: []
+    };
+    volken.push(nieuwVolk);
+    bewaarVolken(volken);
+    toonScherm('scherm-overzicht');
+  }
+
+  function printVolkRapport(){
+    const volk = volken.find(v => v.id === huidigVolkId);
+    const taakLabels = { varroabehandeling: 'Varroabehandeling', wintervoer: 'Wintervoer geven', anders: 'Taak' };
+
+    let inspectiesHtml = '';
+    if(volk.inspecties.length === 0){
+      inspectiesHtml = '<p>Nog geen inspecties geregistreerd.</p>';
+    } else {
+      inspectiesHtml = [...volk.inspecties].reverse().map(insp => {
+        const details = [];
+        if(insp.koningin === 'ja') details.push('Koningin gezien');
+        if(insp.koningin === 'nee') details.push('Koningin niet gezien');
+        if(insp.broednest) details.push(`Broednest: ${insp.broednest}/5`);
+        if(insp.voedsel) details.push(`Voedsel: ${insp.voedsel}`);
+        if(insp.temperament) details.push(`Temperament: ${insp.temperament}`);
+        if(insp.varroa != null) details.push(`Varroatelling: ${insp.varroa}`);
+        if(insp.broedbakken != null) details.push(`Broedbakken: ${insp.broedbakken}`);
+        if(insp.honingkamers != null) details.push(`Honingkamers: ${insp.honingkamers}`);
+        if(insp.gezondheid && insp.gezondheid.some(g => g !== 'geen')) details.push(`Gezondheid: ${insp.gezondheid.filter(g => g !== 'geen').map(gezondheidLabel).join(', ')}`);
+        if(insp.moerwissel) details.push(insp.moerwisselType === 'stil' ? 'Stille moerwissel' : `Nieuwe koningin ingebracht${insp.nieuweRas ? ' (' + insp.nieuweRas + ')' : ''}`);
+        if(insp.weer) details.push(`Weer: ${insp.weer.temperatuur}°C, ${insp.weer.omschrijving.toLowerCase()}, wind ${insp.weer.windsnelheid} km/u`);
+        return `
+          <div style="margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid #ddd;">
+            <strong>${formatDatum(insp.datum)}</strong><br>
+            <span style="font-size:0.9em; color:#444;">${details.join(' · ')}</span>
+            ${insp.notitie ? `<div style="margin-top:4px; font-style:italic;">"${insp.notitie}"</div>` : ''}
+          </div>
+        `;
+      }).join('');
+    }
+
+    const takenHtml = (volk.taken && volk.taken.length)
+      ? volk.taken.map(t => `<li>${formatDatum(t.datum)} — ${taakLabels[t.type] || t.type}${t.afgerond ? ' (afgerond)' : ''}${t.notitie ? ': ' + t.notitie : ''}</li>`).join('')
+      : '<li>Geen geplande taken.</li>';
+
+    const html = `
+      <!DOCTYPE html>
+      <html lang="nl">
+      <head>
+        <meta charset="UTF-8">
+        <title>Rapport ${volk.naam}</title>
+        <style>
+          body{ font-family: Georgia, serif; color:#2a2a2a; padding:30px; max-width:700px; margin:0 auto; }
+          h1{ margin-bottom:2px; }
+          .sub{ color:#666; margin-bottom:20px; }
+          h2{ margin-top:28px; border-bottom:2px solid #333; padding-bottom:4px; }
+          @media print{ body{ padding:0; } }
+        </style>
+      </head>
+      <body>
+        <h1>${volk.naam}</h1>
+        <div class="sub">
+          ${volk.locatie ? volk.locatie + ' · ' : ''}${volk.ras ? volk.ras + ' · ' : ''}${volk.moergeneratie ? 'Moer ' + volk.moergeneratie : ''}${volk.moerjaar ? ' (geboren ' + volk.moerjaar + ')' : ''}
+        </div>
+
+        <h2>Geplande taken</h2>
+        <ul>${takenHtml}</ul>
+
+        <h2>Inspectiegeschiedenis (${volk.inspecties.length})</h2>
+        ${inspectiesHtml}
+
+        <p style="margin-top:30px; font-size:0.8em; color:#999;">Gegenereerd met ImkerApp — gemaakt door een imker voor imkers.</p>
+      </body>
+      </html>
+    `;
+
+    const printVenster = window.open('', '_blank');
+    if(!printVenster){
+      alert('Kon geen nieuw venster openen. Controleer of pop-ups zijn toegestaan voor deze pagina.');
+      return;
+    }
+    printVenster.document.write(html);
+    printVenster.document.close();
+    printVenster.focus();
+    setTimeout(() => printVenster.print(), 300);
+  }
+
+  function volkVerwijderen(){
+    if(!confirm('Weet je zeker dat je dit volk en alle inspecties wilt verwijderen?')) return;
+    volken = volken.filter(v => v.id !== huidigVolkId);
+    bewaarVolken(volken);
+    toonScherm('scherm-overzicht');
+  }
+
+  // ===== Overzicht renderen =====
+  function dagenSindsDatum(datumStr){
+    const laatste = new Date(datumStr);
+    const nu = new Date();
+    // Vergelijk op hele dagen, tijd van de dag telt niet mee
+    laatste.setHours(0,0,0,0);
+    nu.setHours(0,0,0,0);
+    return Math.round((nu - laatste) / (1000 * 60 * 60 * 24));
+  }
+
+  function heeftZwermAlarm(volk){
+    if(volk.inspecties.length === 0) return false;
+    const laatste = volk.inspecties[volk.inspecties.length - 1];
+    if(!laatste.gezondheid || !laatste.gezondheid.includes('zwermneiging')) return false;
+    return dagenSindsDatum(laatste.datum) >= 7;
+  }
+
+  const VARROA_LET_OP_DREMPEL = 3; // indicatieve grens, pas aan naar wat gangbaar is in jouw regio/methode
+
+  function bepaalStatus(volk){
+    if(heeftZwermAlarm(volk)) return 'zwerm-alarm';
+    if(volk.inspecties.length === 0) return 'onbekend';
+    const laatste = volk.inspecties[volk.inspecties.length - 1];
+    if(laatste.gezondheid.some(g => g !== 'geen')) return 'probleem';
+    if(laatste.varroa != null && laatste.varroa >= VARROA_LET_OP_DREMPEL) return 'probleem';
+    if(laatste.voedsel === 'weinig' || laatste.temperament === 'fel') return 'let-op';
+    return 'goed';
+  }
+
+  // Sorteert volken op naam, waarbij getallen binnen de naam natuurlijk oplopen
+  // (dus "Kast 2" komt voor "Kast 10", niet erna zoals bij een gewone tekstsortering)
+  function sorteerVolkenNatuurlijk(lijst){
+    return [...lijst].sort((a, b) =>
+      a.naam.localeCompare(b.naam, undefined, { numeric: true, sensitivity: 'base' })
+    );
+  }
+
+  function renderOverzicht(){
+    volken = laadVolken();
+    const lijst = document.getElementById('volk-lijst');
+    const legeStaat = document.getElementById('lege-staat');
+    const sub = document.getElementById('overzicht-sub');
+    lijst.innerHTML = '';
+
+    // Zwermseizoen-reminder (half april t/m eind juni)
+    const vandaag = new Date();
+    const jaarNu = vandaag.getFullYear();
+    const seizoenStart = new Date(jaarNu, 3, 15); // 15 april
+    const seizoenEind = new Date(jaarNu, 5, 30);  // 30 juni
+    document.getElementById('zwermseizoen-banner').style.display =
+      (vandaag >= seizoenStart && vandaag <= seizoenEind) ? 'flex' : 'none';
+
+    if(volken.length === 0){
+      legeStaat.style.display = 'block';
+      sub.textContent = 'Nog geen volken toegevoegd';
+      return;
+    }
+    legeStaat.style.display = 'none';
+    sub.textContent = volken.length + (volken.length === 1 ? ' volk' : ' volken') + ' in beheer';
+
+    const gesorteerdeVolken = sorteerVolkenNatuurlijk(volken);
+    gesorteerdeVolken.forEach(volk => {
+      const status = bepaalStatus(volk);
+      const kaart = document.createElement('div');
+      kaart.className = 'volk-kaart';
+      kaart.onclick = () => toonVolkDetail(volk.id);
+      const laatsteDatum = volk.inspecties.length ? formatDatum(volk.inspecties[volk.inspecties.length-1].datum) : 'Nog geen inspecties';
+      const alarmTekst = status === 'zwerm-alarm'
+        ? `<div class="alarm-kaart-tekst">⚠️ Zwermalarm — al ${dagenSindsDatum(volk.inspecties[volk.inspecties.length-1].datum)} dagen geen inspectie sinds doppen gezien</div>`
+        : '';
+      kaart.innerHTML = `
+        <div class="volk-info">
+          <h3>${escapeHtml(volk.naam)}</h3>
+          <div class="sub">${volk.locatie ? escapeHtml(volk.locatie) + ' · ' : ''}${laatsteDatum}</div>
+          ${alarmTekst}
+        </div>
+        <div class="volk-status status-${status}"></div>
+      `;
+      lijst.appendChild(kaart);
+    });
+  }
+
+  // ===== Volk detail renderen =====
+
+  // ===== Inwinteren: kg voer en broedramen bijhouden, en het tekort berekenen =====
+  // ===== Honingoogst per volk =====
+  function wisselOogstSectie(){
+    const inhoud = document.getElementById('oogst-inhoud');
+    const header = inhoud.previousElementSibling;
+    const icoon = document.getElementById('oogst-toggle-icoon');
+    const openen = inhoud.style.display === 'none';
+    inhoud.style.display = openen ? 'block' : 'none';
+    header.classList.toggle('open', openen);
+    icoon.textContent = openen ? '▾' : '▸';
+  }
+
+  function oogstToevoegen(){
+    const datum = document.getElementById('oogst-datum').value;
+    const kgVal = document.getElementById('oogst-kg').value;
+    if(!datum){ alert('Kies een datum voor deze oogst.'); return; }
+    if(kgVal === '' || Number(kgVal) <= 0){ alert('Vul een geldig aantal kg in.'); return; }
+
+    const volk = volken.find(v => v.id === huidigVolkId);
+    if(!volk.oogsten) volk.oogsten = [];
+    volk.oogsten.push({
+      id: 'oogst_' + Math.random().toString(36).slice(2) + Date.now(),
+      datum: datum,
+      kg: Number(kgVal),
+      notitie: document.getElementById('oogst-notitie').value.trim()
+    });
+    volk.oogsten.sort((a, b) => new Date(a.datum) - new Date(b.datum));
+    bewaarVolken(volken);
+
+    document.getElementById('oogst-datum').value = '';
+    document.getElementById('oogst-kg').value = '';
+    document.getElementById('oogst-notitie').value = '';
+    renderOogst(volk);
+  }
+
+  function oogstVerwijderen(oogstId){
+    if(!confirm('Deze oogst verwijderen?')) return;
+    const volk = volken.find(v => v.id === huidigVolkId);
+    volk.oogsten = volk.oogsten.filter(o => o.id !== oogstId);
+    bewaarVolken(volken);
+    renderOogst(volk);
+  }
+
+  function renderOogst(volk){
+    const oogsten = volk.oogsten || [];
+    const lijstEl = document.getElementById('oogst-lijst');
+    const geenEl = document.getElementById('oogst-geen');
+    const totalenEl = document.getElementById('oogst-totalen');
+    lijstEl.innerHTML = '';
+
+    const ditJaar = new Date().getFullYear();
+    const totaalDitJaar = oogsten.filter(o => new Date(o.datum).getFullYear() === ditJaar).reduce((som, o) => som + o.kg, 0);
+    const totaalAllerTijden = oogsten.reduce((som, o) => som + o.kg, 0);
+    totalenEl.textContent = `Dit jaar: ${totaalDitJaar.toFixed(1)} kg · Totaal ooit: ${totaalAllerTijden.toFixed(1)} kg`;
+
+    if(oogsten.length === 0){
+      geenEl.style.display = 'block';
+      return;
+    }
+    geenEl.style.display = 'none';
+
+    [...oogsten].reverse().forEach(oogst => {
+      const item = document.createElement('div');
+      item.className = 'agenda-taak-item';
+      item.innerHTML = `
+        <div class="agenda-taak-info">
+          <div class="agenda-taak-datum">${formatDatum(oogst.datum)} — ${oogst.kg} kg</div>
+          ${oogst.notitie ? `<div class="agenda-taak-notitie">"${escapeHtml(oogst.notitie)}"</div>` : ''}
+        </div>
+        <div class="agenda-taak-acties">
+          <span class="agenda-taak-link" onclick="oogstVerwijderen('${oogst.id}')">Verwijderen</span>
+        </div>
+      `;
+      lijstEl.appendChild(item);
+    });
+  }
+
+  function wisselInwinterSectie(){
+    const inhoud = document.getElementById('inwinter-inhoud');
+    const header = inhoud.previousElementSibling;
+    const icoon = document.getElementById('inwinter-toggle-icoon');
+    const openen = inhoud.style.display === 'none';
+    inhoud.style.display = openen ? 'block' : 'none';
+    header.classList.toggle('open', openen);
+    icoon.textContent = openen ? '▾' : '▸';
+  }
+
+  function berekenInwinterLive(){
+    const voerramenVal = document.getElementById('inwinter-voerramen').value;
+    const kgPerRaamVal = document.getElementById('inwinter-kg-per-raam').value;
+    const berekendEl = document.getElementById('inwinter-berekend');
+
+    if(voerramenVal === '' || kgPerRaamVal === ''){
+      berekendEl.textContent = '';
+      return;
+    }
+    const voerKg = Number(voerramenVal) * Number(kgPerRaamVal);
+    berekendEl.textContent = `≈ ${voerKg.toFixed(1)} kg voer aanwezig (${voerramenVal} raam/ramen × ${kgPerRaamVal} kg/raam)`;
+  }
+
+  function inwinterenOpslaan(){
+    const volk = volken.find(v => v.id === huidigVolkId);
+    const voerramenVal = document.getElementById('inwinter-voerramen').value;
+    const kgPerRaamVal = document.getElementById('inwinter-kg-per-raam').value;
+    const broedramenVal = document.getElementById('inwinter-broedramen').value;
+    const doelKgVal = document.getElementById('inwinter-doel-kg').value;
+
+    volk.inwinteren = {
+      voerramen: voerramenVal !== '' ? Number(voerramenVal) : null,
+      kgPerRaam: kgPerRaamVal !== '' ? Number(kgPerRaamVal) : null,
+      broedramen: broedramenVal !== '' ? Number(broedramenVal) : null,
+      doelVoerKg: doelKgVal !== '' ? Number(doelKgVal) : null
+    };
+    bewaarVolken(volken);
+    toonInwinterResultaat(volk);
+  }
+
+  function toonInwinterResultaat(volk){
+    const resultaatEl = document.getElementById('inwinter-resultaat');
+    const inwinteren = volk.inwinteren || {};
+    const voerramen = inwinteren.voerramen;
+    const kgPerRaam = inwinteren.kgPerRaam;
+    const doelKg = inwinteren.doelVoerKg;
+
+    if(voerramen == null || kgPerRaam == null || doelKg == null){
+      resultaatEl.textContent = '';
+      resultaatEl.style.color = '';
+      return;
+    }
+
+    const voerKgVanRamen = voerramen * kgPerRaam;
+    const bijgevoerdKg = inwinteren.bijgevoerdKg || 0;
+    const totaalKg = voerKgVanRamen + bijgevoerdKg;
+    const aanwezigTekst = bijgevoerdKg > 0
+      ? `${voerKgVanRamen.toFixed(1)} kg van ramen + ${bijgevoerdKg.toFixed(1)} kg bijgevoerd = ${totaalKg.toFixed(1)} kg`
+      : `${totaalKg.toFixed(1)} kg`;
+
+    const tekortKg = doelKg - totaalKg;
+    if(tekortKg <= 0){
+      resultaatEl.textContent = `🎉 Genoeg voer aanwezig voor de winter (${aanwezigTekst}).`;
+      resultaatEl.style.color = 'var(--groen)';
+    } else {
+      // Omrekening naar 3:2-suikerwater (3 kg suiker op 2 liter water), ervan uitgaande
+      // dat het kg-tekort overeenkomt met de gewenste hoeveelheid suiker(equivalent).
+      const suikerKg = tekortKg;
+      const waterLiter = tekortKg * (2 / 3);
+      const totaalVolumeLiter = (suikerKg + waterLiter) / 1.3; // 1,3 kg/liter is een gangbare indicatieve dichtheid voor 3:2-suikerwater
+
+      resultaatEl.innerHTML = `
+        ⚠️ Nog ongeveer ${tekortKg.toFixed(1)} kg voer bijvoeren (nu ${aanwezigTekst} aanwezig).
+        <div style="font-weight:400; font-size:0.85rem; color:var(--bruin-zacht); margin-top:6px;">
+          Als 3:2-suikerwater: ≈ ${suikerKg.toFixed(1)} kg suiker + ${waterLiter.toFixed(1)} liter water
+          (samen ongeveer ${totaalVolumeLiter.toFixed(1)} liter suikerwater, indicatief).
+        </div>
+      `;
+      resultaatEl.style.color = 'var(--roest)';
+    }
+  }
+
+  // Omrekening van liter 3:2-suikerwater naar kg voer(-equivalent), de omgekeerde
+  // berekening van hierboven (dichtheid 1,3 kg/liter, verhouding 3 suiker : 2 water).
+  function literNaarKgVoer(liters){
+    return liters * 1.3 * (3 / 5);
+  }
+
+  function voerToevoegen(){
+    const literVal = document.getElementById('inwinter-liter-toegevoegd').value;
+    if(literVal === '' || Number(literVal) <= 0){
+      alert('Vul een geldig aantal liters in.');
+      return;
+    }
+    const volk = volken.find(v => v.id === huidigVolkId);
+    if(!volk.inwinteren) volk.inwinteren = {};
+    const kgToegevoegd = literNaarKgVoer(Number(literVal));
+    volk.inwinteren.bijgevoerdKg = (volk.inwinteren.bijgevoerdKg || 0) + kgToegevoegd;
+    bewaarVolken(volken);
+
+    document.getElementById('inwinter-liter-toegevoegd').value = '';
+    toonInwinterResultaat(volk);
+    toonBijgevoerdTotaal(volk);
+  }
+
+  function voerBijgevoerdResetten(){
+    if(!confirm('Het totaal aan dit seizoen bijgevoerd voer voor dit volk resetten naar 0?')) return;
+    const volk = volken.find(v => v.id === huidigVolkId);
+    if(volk.inwinteren) volk.inwinteren.bijgevoerdKg = 0;
+    bewaarVolken(volken);
+    toonInwinterResultaat(volk);
+    toonBijgevoerdTotaal(volk);
+  }
+
+  function toonBijgevoerdTotaal(volk){
+    const inwinteren = volk.inwinteren || {};
+    const bijgevoerdKg = inwinteren.bijgevoerdKg || 0;
+    const totaalEl = document.getElementById('inwinter-bijgevoerd-totaal');
+    const resetLink = document.getElementById('inwinter-reset-link');
+
+    if(bijgevoerdKg > 0){
+      const literEquivalent = bijgevoerdKg / (1.3 * (3 / 5));
+      totaalEl.textContent = `Totaal dit seizoen bijgevoerd: ≈ ${bijgevoerdKg.toFixed(1)} kg (≈ ${literEquivalent.toFixed(1)} liter suikerwater)`;
+      resetLink.style.display = 'inline-block';
+    } else {
+      totaalEl.textContent = 'Nog niets bijgevoerd geregistreerd.';
+      resetLink.style.display = 'none';
+    }
+  }
+
+  function toonVolkDetail(volkId){
+    huidigVolkId = volkId;
+    const volk = volken.find(v => v.id === volkId);
+    document.getElementById('detail-titel').textContent = volk.naam;
+    document.getElementById('detail-locatie').textContent = volk.locatie || '';
+
+    const rasInfoEl = document.getElementById('detail-ras-info');
+    let rasInfoHtml = '';
+    if(volk.ras) rasInfoHtml += `<span class="tag">🐝 ${escapeHtml(volk.ras)}</span>`;
+    if(volk.moergeneratie) rasInfoHtml += `<span class="tag">👑 Moer ${escapeHtml(volk.moergeneratie)}</span>`;
+    if(volk.moerjaar) rasInfoHtml += `<span class="tag">📅 Moer geboren ${escapeHtml(String(volk.moerjaar))}</span>`;
+    if(volk.aantalBroedbakken != null) rasInfoHtml += `<span class="tag">📦 ${volk.aantalBroedbakken} broedbak(ken)</span>`;
+    if(volk.aantalHoningkamers != null) rasInfoHtml += `<span class="tag">🍯 ${volk.aantalHoningkamers} honingkamer(s)</span>`;
+    rasInfoEl.innerHTML = rasInfoHtml;
+
+    // Inwinteren-sectie vullen met de opgeslagen waarden van dit volk (en standaard dichtgeklapt tonen)
+    const inwinteren = volk.inwinteren || {};
+    document.getElementById('inwinter-voerramen').value = inwinteren.voerramen != null ? inwinteren.voerramen : '';
+    document.getElementById('inwinter-kg-per-raam').value = inwinteren.kgPerRaam != null ? inwinteren.kgPerRaam : '';
+    document.getElementById('inwinter-broedramen').value = inwinteren.broedramen != null ? inwinteren.broedramen : '';
+    document.getElementById('inwinter-doel-kg').value = inwinteren.doelVoerKg != null ? inwinteren.doelVoerKg : '';
+    berekenInwinterLive();
+    toonInwinterResultaat(volk);
+    toonBijgevoerdTotaal(volk);
+    document.getElementById('inwinter-liter-toegevoegd').value = '';
+    document.getElementById('inwinter-inhoud').style.display = 'none';
+    document.getElementById('inwinter-toggle-icoon').textContent = '▸';
+    document.getElementById('inwinter-inhoud').previousElementSibling.classList.remove('open');
+
+    // Honingoogst-sectie vullen en standaard dichtgeklapt tonen
+    renderOogst(volk);
+    document.getElementById('oogst-datum').value = '';
+    document.getElementById('oogst-kg').value = '';
+    document.getElementById('oogst-notitie').value = '';
+    document.getElementById('oogst-inhoud').style.display = 'none';
+    document.getElementById('oogst-toggle-icoon').textContent = '▸';
+    document.getElementById('oogst-inhoud').previousElementSibling.classList.remove('open');
+
+    const alarmActief = heeftZwermAlarm(volk);
+    const alarmBanner = document.getElementById('zwerm-alarm-banner');
+    alarmBanner.style.display = alarmActief ? 'flex' : 'none';
+    if(alarmActief){
+      const laatsteInspectie = volk.inspecties[volk.inspecties.length - 1];
+      document.getElementById('zwerm-alarm-tekst').textContent =
+        `Zwermalarm: doppen (zwermneiging) gezien op ${formatDatum(laatsteInspectie.datum)} — al ${dagenSindsDatum(laatsteInspectie.datum)} dagen geen nieuwe inspectie. Controleer dit volk zo snel mogelijk.`;
+    }
+
+    const container = document.getElementById('tijdlijn-container');
+    const legeStaat = document.getElementById('geen-inspecties');
+    container.innerHTML = '';
+
+    if(volk.inspecties.length === 0){
+      legeStaat.style.display = 'block';
+    } else {
+      legeStaat.style.display = 'none';
+      // Nieuwste eerst
+      [...volk.inspecties].reverse().forEach(insp => {
+        if(!insp.id){ insp.id = 'insp_' + Math.random().toString(36).slice(2) + Date.now(); }
+        const item = document.createElement('div');
+        item.className = 'inspectie-item';
+
+        let tags = '';
+        if(insp.koningin === 'ja') tags += `<span class="tag groen">Koningin gezien</span>`;
+        if(insp.koningin === 'nee') tags += `<span class="tag roest">Koningin niet gezien</span>`;
+        tags += `<span class="tag">Broednest ${insp.broednest}/5</span>`;
+        if(insp.voedsel) tags += `<span class="tag">Voedsel: ${insp.voedsel}</span>`;
+        if(insp.broedbakken != null) tags += `<span class="tag">📦 ${insp.broedbakken} broedbak(ken)</span>`;
+        if(insp.weer) tags += `<span class="tag">${weerIcoon(insp.weer.weerCode)} ${insp.weer.temperatuur}°C, ${insp.weer.omschrijving.toLowerCase()}</span>`;
+        if(insp.honingkamers != null) tags += `<span class="tag">🍯 ${insp.honingkamers} honingkamer(s)</span>`;
+        if(insp.temperament) tags += `<span class="tag">Temperament: ${insp.temperament}</span>`;
+        if(insp.varroa != null){
+          const varroaHoog = insp.varroa >= VARROA_LET_OP_DREMPEL;
+          tags += `<span class="tag ${varroaHoog ? 'roest' : ''}">Varroa: ${insp.varroa}</span>`;
+        }
+        insp.gezondheid.forEach(g => {
+          if(g !== 'geen') tags += `<span class="tag roest">${gezondheidLabel(g)}</span>`;
+        });
+        if(insp.moerwissel){
+          if(insp.moerwisselType === 'stil'){
+            tags += `<span class="tag">👑 Stille moerwissel</span>`;
+          } else if(insp.moerwisselType === 'nieuw'){
+            tags += `<span class="tag">👑 Nieuwe koningin${insp.nieuweRas ? ' (' + escapeHtml(insp.nieuweRas) + ')' : ''}</span>`;
+          } else {
+            tags += `<span class="tag">👑 Moerwissel</span>`;
+          }
+        }
+
+        const heeftIssue = insp.gezondheid.some(g => g !== 'geen') || (insp.varroa != null && insp.varroa >= VARROA_LET_OP_DREMPEL);
+        const stipKleur = heeftIssue ? 'var(--roest)' : (insp.voedsel === 'weinig' ? 'var(--goud)' : 'var(--groen)');
+
+        item.innerHTML = `
+          <div class="tijdlijn-stip" style="background:${stipKleur}"></div>
+          <div class="inspectie-kaart">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+              <div class="inspectie-datum">${formatDatum(insp.datum)}</div>
+              <span class="inspectie-bewerk-link" onclick="bewerkInspectie('${insp.id}')">✏️ Bewerken</span>
+            </div>
+            <div class="inspectie-details">${tags}</div>
+            ${insp.fotos && insp.fotos.length ? `<div class="inspectie-fotos">${insp.fotos.map(f => `<img src="${f}" onclick="toonFotoGroot('${f}')">`).join('')}</div>` : ''}
+            ${insp.notitie ? `<div class="inspectie-notitie">"${escapeHtml(insp.notitie)}"</div>` : ''}
+          </div>
+        `;
+        container.appendChild(item);
+      });
+    }
+    bewaarVolken(volken);
+    renderGrafieken(volk);
+    toonScherm('scherm-volk-detail');
+    setTimeout(() => initMiniKaartDetail(volk), 50);
+  }
+
+  function gezondheidLabel(code){
+    const labels = {
+      kalkbroed: 'Kalkbroed',
+      wratjesziekte: 'Wratjesziekte/Nosema',
+      zwermneiging: 'Zwermneiging'
+    };
+    return labels[code] || code;
+  }
+
+  // ===== Inspectie opslaan =====
+  function inspectieOpslaan(){
+    const datum = document.getElementById('input-datum').value;
+    if(!datum){ alert('Kies een datum voor de inspectie.'); return; }
+
+    const koninginBtn = document.querySelector('#groep-koningin .geselecteerd');
+    const broednestBol = document.querySelector('#schaal-broednest .geselecteerd');
+    const voedselBtn = document.querySelector('#groep-voedsel .geselecteerd');
+    const temperamentBtn = document.querySelector('#groep-temperament .geselecteerd');
+    const gezondheid = [...document.querySelectorAll('#lijst-gezondheid input:checked')].map(c => c.value);
+    const volk = volken.find(v => v.id === huidigVolkId);
+
+    const moerwisselAan = document.getElementById('input-moerwissel').checked;
+    const moerwisselTypeBtn = document.querySelector('#groep-moerwissel-type .geselecteerd');
+    const moerwisselType = moerwisselTypeBtn ? moerwisselTypeBtn.dataset.waarde : null;
+    const moerwisselRasSelectie = document.getElementById('input-moerwissel-ras').value;
+    const moerwisselRas = moerwisselRasSelectie === 'overig'
+      ? document.getElementById('input-moerwissel-ras-overig').value.trim()
+      : moerwisselRasSelectie;
+
+    const nieuweInspectie = {
+      id: huidigeInspectieId || ('insp_' + Math.random().toString(36).slice(2) + Date.now()),
+      datum: datum,
+      koningin: koninginBtn ? koninginBtn.dataset.waarde : null,
+      broednest: broednestBol ? broednestBol.dataset.waarde : null,
+      voedsel: voedselBtn ? voedselBtn.dataset.waarde : null,
+      temperament: temperamentBtn ? temperamentBtn.dataset.waarde : null,
+      varroa: document.getElementById('input-varroa').value !== '' ? Number(document.getElementById('input-varroa').value) : null,
+      gezondheid: gezondheid,
+      moerwissel: moerwisselAan,
+      moerwisselType: moerwisselAan ? moerwisselType : null,
+      nieuweRas: (moerwisselAan && moerwisselType === 'nieuw') ? moerwisselRas : null,
+      nieuweMoergeneratie: (moerwisselAan && moerwisselType === 'nieuw') ? document.getElementById('input-moerwissel-generatie').value : null,
+      nieuwMoerjaar: (moerwisselAan && moerwisselType === 'nieuw' && document.getElementById('input-moerwissel-jaar').value !== '') ? Number(document.getElementById('input-moerwissel-jaar').value) : null,
+      broedbakken: volk.aantalBroedbakken != null ? volk.aantalBroedbakken : null,
+      honingkamers: volk.aantalHoningkamers != null ? volk.aantalHoningkamers : null,
+      weer: huidigeWeerData,
+      fotos: huidigeFotos,
+      notitie: document.getElementById('input-notitie').value.trim()
+    };
+
+    if(huidigeInspectieId){
+      const index = volk.inspecties.findIndex(i => i.id === huidigeInspectieId);
+      if(index !== -1){ volk.inspecties[index] = nieuweInspectie; }
+    } else {
+      volk.inspecties.push(nieuweInspectie);
+    }
+    // Sorteer op datum zodat de tijdlijn klopt ongeacht invoervolgorde
+    volk.inspecties.sort((a,b) => new Date(a.datum) - new Date(b.datum));
+
+    if(nieuweInspectie.moerwissel && nieuweInspectie.moerwisselType === 'stil'){
+      verwerkStilleMoerwissel(volk, nieuweInspectie.datum);
+    } else if(nieuweInspectie.moerwissel && nieuweInspectie.moerwisselType === 'nieuw'){
+      verwerkNieuweKoningin(volk, nieuweInspectie);
+    }
+
+    bewaarVolken(volken);
+    huidigeInspectieId = null;
+    toonVolkDetail(huidigVolkId);
+  }
+
+  function inspectieVerwijderen(){
+    if(!huidigeInspectieId) return;
+    if(!confirm('Deze inspectie definitief verwijderen? Dit kan niet ongedaan worden gemaakt.')) return;
+
+    const volk = volken.find(v => v.id === huidigVolkId);
+    volk.inspecties = volk.inspecties.filter(i => i.id !== huidigeInspectieId);
+    bewaarVolken(volken);
+    huidigeInspectieId = null;
+    toonVolkDetail(huidigVolkId);
+  }
+
+  // Bij een stille moerwissel: de kolonie heeft zelf een nieuwe koningin grootgebracht
+  // (dochter van de vorige) — dus schuift de moergeneratie een stap op en is het
+  // geboortejaar van de nieuwe koningin het jaar van deze inspectie. Het ras blijft gelijk.
+  const MOERGENERATIE_VOLGORDE = ['P0','F1','F2','F3','F4','F5','F6','F7'];
+  function verwerkStilleMoerwissel(volk, inspectieDatum){
+    const huidigeIndex = MOERGENERATIE_VOLGORDE.indexOf(volk.moergeneratie);
+    if(huidigeIndex !== -1 && huidigeIndex < MOERGENERATIE_VOLGORDE.length - 1){
+      volk.moergeneratie = MOERGENERATIE_VOLGORDE[huidigeIndex + 1];
+    }
+    // Was de generatie onbekend, dan blijft die onbekend — we kunnen 'm niet raden.
+    volk.moerjaar = new Date(inspectieDatum).getFullYear();
+  }
+
+  // Bij het inbrengen van een nieuwe koningin: ras, generatie en geboortejaar
+  // worden overschreven met wat er handmatig is ingevuld (geen aanname mogelijk).
+  function verwerkNieuweKoningin(volk, insp){
+    if(insp.nieuweRas) volk.ras = insp.nieuweRas;
+    if(insp.nieuweMoergeneratie) volk.moergeneratie = insp.nieuweMoergeneratie;
+    volk.moerjaar = insp.nieuwMoerjaar != null ? insp.nieuwMoerjaar : new Date(insp.datum).getFullYear();
+  }
+
+  // ===== Hulpfuncties =====
+  function formatDatum(datumStr){
+    const d = new Date(datumStr);
+    return d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' });
+  }
+  function escapeHtml(tekst){
+    const div = document.createElement('div');
+    div.textContent = tekst;
+    return div.innerHTML;
+  }
+
+  // ===== Grafieken (Chart.js) =====
+  let grafiekBroednest = null;
+  let grafiekJaartrendBroednest = null;
+  let grafiekJaartrendVarroa = null;
+
+  function renderJaartrend(volk){
+    const sectie = document.getElementById('jaartrend-sectie');
+    // Groeperen per jaar
+    const perJaar = {};
+    volk.inspecties.forEach(i => {
+      const jaar = new Date(i.datum).getFullYear();
+      if(!perJaar[jaar]) perJaar[jaar] = { broednest: [], varroa: [] };
+      if(i.broednest) perJaar[jaar].broednest.push(Number(i.broednest));
+      if(i.varroa != null) perJaar[jaar].varroa.push(Number(i.varroa));
+    });
+    const jaren = Object.keys(perJaar).sort();
+
+    if(jaren.length < 2){
+      sectie.style.display = 'none';
+      return;
+    }
+    sectie.style.display = 'block';
+
+    const gemiddelde = arr => arr.length ? arr.reduce((a,b) => a+b, 0) / arr.length : null;
+    const broednestPerJaar = jaren.map(j => gemiddelde(perJaar[j].broednest));
+    const varroaPerJaar = jaren.map(j => gemiddelde(perJaar[j].varroa));
+
+    if(grafiekJaartrendBroednest) grafiekJaartrendBroednest.destroy();
+    grafiekJaartrendBroednest = new Chart(document.getElementById('grafiek-jaartrend-broednest'), {
+      type: 'line',
+      data: {
+        labels: jaren,
+        datasets: [{
+          data: broednestPerJaar,
+          borderColor: '#C6871F',
+          backgroundColor: 'rgba(255,193,7,0.18)',
+          pointBackgroundColor: '#C6871F',
+          pointBorderColor: '#FFFDF8',
+          pointBorderWidth: 1.5,
+          pointRadius: 6,
+          borderWidth: 2.5,
+          fill: true,
+          tension: 0.2,
+          spanGaps: true
+        }]
+      },
+      options: grafiekOpties(1, 5, 1)
+    });
+
+    if(grafiekJaartrendVarroa) grafiekJaartrendVarroa.destroy();
+    grafiekJaartrendVarroa = new Chart(document.getElementById('grafiek-jaartrend-varroa'), {
+      type: 'line',
+      data: {
+        labels: jaren,
+        datasets: [{
+          data: varroaPerJaar,
+          borderColor: '#B5541F',
+          backgroundColor: 'rgba(181,84,31,0.12)',
+          pointBackgroundColor: '#B5541F',
+          pointBorderColor: '#FFFDF8',
+          pointBorderWidth: 1.5,
+          pointRadius: 6,
+          borderWidth: 2.5,
+          fill: true,
+          tension: 0.2,
+          spanGaps: true
+        }]
+      },
+      options: grafiekOpties(0, undefined, undefined)
+    });
+  }
+
+  let grafiekVarroa = null;
+
+  function renderGrafieken(volk){
+    const inspecties = volk.inspecties; // al gesorteerd op datum, oud naar nieuw
+    const container = document.getElementById('grafieken-container');
+    const legeStaat = document.getElementById('geen-grafiek');
+    renderJaartrend(volk);
+
+    if(inspecties.length < 2){
+      container.style.display = 'none';
+      legeStaat.style.display = 'block';
+      return;
+    }
+    container.style.display = 'block';
+    legeStaat.style.display = 'none';
+
+    const labels = inspecties.map(i => new Date(i.datum).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' }));
+    const heeftIssue = i => (i.gezondheid && i.gezondheid.some(g => g !== 'geen')) || (i.varroa != null && i.varroa >= VARROA_LET_OP_DREMPEL);
+    const stipKleuren = inspecties.map(i => heeftIssue(i) ? '#B5541F' : '#C6871F');
+
+    // Broednest-grafiek
+    const broednestData = inspecties.map(i => i.broednest ? Number(i.broednest) : null);
+    if(grafiekBroednest) grafiekBroednest.destroy();
+    grafiekBroednest = new Chart(document.getElementById('grafiek-broednest'), {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          data: broednestData,
+          borderColor: '#C6871F',
+          backgroundColor: 'rgba(255,193,7,0.18)',
+          pointBackgroundColor: stipKleuren,
+          pointBorderColor: '#FFFDF8',
+          pointBorderWidth: 1.5,
+          pointRadius: 5,
+          pointHoverRadius: 6,
+          borderWidth: 2.5,
+          fill: true,
+          tension: 0.3,
+          spanGaps: true
+        }]
+      },
+      options: grafiekOpties(1, 5, 1)
+    });
+
+    // Varroatelling-grafiek (staafdiagram, met rode staven boven de aandachtsgrens)
+    const varroaData = inspecties.map(i => i.varroa != null ? Number(i.varroa) : null);
+    const varroaKleuren = inspecties.map(i => (i.varroa != null && i.varroa >= VARROA_LET_OP_DREMPEL) ? '#B5541F' : '#E8A93A');
+    if(grafiekVarroa) grafiekVarroa.destroy();
+    grafiekVarroa = new Chart(document.getElementById('grafiek-varroa'), {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          data: varroaData,
+          backgroundColor: varroaKleuren,
+          borderRadius: 4,
+          maxBarThickness: 28
+        }]
+      },
+      options: grafiekOpties(0, undefined, undefined)
+    });
+  }
+
+  function grafiekOpties(min, max, stap){
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#3A2317',
+          titleFont: { family: "'Source Sans 3', sans-serif", weight: '600' },
+          bodyFont: { family: "'Source Sans 3', sans-serif" },
+          padding: 10,
+          cornerRadius: 8
+        }
+      },
+      scales: {
+        y: {
+          min: min,
+          max: max,
+          ticks: { stepSize: stap, color: '#6B4E3D', font: { family: "'Source Sans 3', sans-serif", size: 11 } },
+          grid: { color: '#F1E8CE' }
+        },
+        x: {
+          ticks: { color: '#6B4E3D', font: { family: "'Source Sans 3', sans-serif", size: 11 }, maxRotation: 0, autoSkip: true },
+          grid: { display: false }
+        }
+      }
+    };
+  }
+
+  // ===== Kaartfunctionaliteit (Leaflet + OpenStreetMap) =====
+  const STANDAARD_MIDDEN = [52.1326, 5.2913]; // Midden van Nederland als startpunt
+  const bijenIcoon = L.divIcon({
+    className: '',
+    html: '<div class="bijenkast-marker"><span>🐝</span></div>',
+    iconSize: [30, 30],
+    iconAnchor: [15, 28],
+    popupAnchor: [0, -26]
+  });
+  const alarmIcoon = L.divIcon({
+    className: '',
+    html: '<div class="bijenkast-marker" style="background:var(--roest);"><span>⚠️</span></div>',
+    iconSize: [30, 30],
+    iconAnchor: [15, 28],
+    popupAnchor: [0, -26]
+  });
+
+  let hoofdkaart = null;
+  let hoofdkaartMarkers = [];
+  let miniKaartNieuw = null;
+  let miniKaartNieuwMarkerObj = null;
+  let nieuwVolkPositie = null; // {lat, lng}
+
+  let miniKaartDetail = null;
+  let miniKaartDetailMarker = null;
+
+  function wisselTab(tab){
+    document.getElementById('tab-lijst-btn').classList.toggle('actief', tab === 'lijst');
+    document.getElementById('tab-kaart-btn').classList.toggle('actief', tab === 'kaart');
+    document.getElementById('tabweergave-lijst').classList.toggle('actief', tab === 'lijst');
+    document.getElementById('tabweergave-kaart').classList.toggle('actief', tab === 'kaart');
+    if(tab === 'kaart'){
+      renderHoofdkaart();
+    }
+  }
+
+  function renderHoofdkaart(){
+    volken = laadVolken();
+    const volkenMetLocatie = volken.filter(v => v.lat != null && v.lng != null);
+    document.getElementById('geen-locaties').style.display = volkenMetLocatie.length === 0 ? 'block' : 'none';
+    document.getElementById('hoofdkaart').style.display = volkenMetLocatie.length === 0 ? 'none' : 'block';
+
+    if(!hoofdkaart){
+      hoofdkaart = L.map('hoofdkaart').setView(STANDAARD_MIDDEN, 13);
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19,
+        attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ'
+      }).addTo(hoofdkaart);
+    }
+
+    // Bestaande markers verwijderen en opnieuw tekenen
+    hoofdkaartMarkers.forEach(m => hoofdkaart.removeLayer(m));
+    hoofdkaartMarkers = [];
+
+    volkenMetLocatie.forEach(volk => {
+      const isAlarm = heeftZwermAlarm(volk);
+      const marker = L.marker([volk.lat, volk.lng], { icon: isAlarm ? alarmIcoon : bijenIcoon }).addTo(hoofdkaart);
+      marker.bindPopup(`
+        <div class="popup-volk-naam">${escapeHtml(volk.naam)}</div>
+        ${isAlarm ? `<div style="color:#B5541F; font-weight:700; font-size:0.85rem; margin-bottom:4px;">⚠️ Zwermalarm</div>` : ''}
+        ${volk.locatie ? `<div style="margin-bottom:6px; color:#6B4E3D;">${escapeHtml(volk.locatie)}</div>` : ''}
+        <span class="popup-link" onclick="hoofdkaart.closePopup(); toonVolkDetail('${volk.id}')">Bekijk volk →</span>
+      `);
+      hoofdkaartMarkers.push(marker);
+    });
+
+    if(volkenMetLocatie.length > 0){
+      const groep = L.featureGroup(hoofdkaartMarkers);
+      hoofdkaart.fitBounds(groep.getBounds().pad(0.3), { maxZoom: 15 });
+    }
+
+    setTimeout(() => hoofdkaart.invalidateSize(), 80);
+  }
+
+  // ----- Mini-kaart bij nieuw volk toevoegen -----
+  function initMiniKaartNieuw(){
+    nieuwVolkPositie = null;
+
+    if(!miniKaartNieuw){
+      miniKaartNieuw = L.map('mini-kaart-nieuw').setView(STANDAARD_MIDDEN, 12);
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19,
+        attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ'
+      }).addTo(miniKaartNieuw);
+      miniKaartNieuw.on('click', (e) => {
+        plaatsNieuwVolkMarker(e.latlng.lat, e.latlng.lng);
+      });
+    } else {
+      if(miniKaartNieuwMarkerObj){ miniKaartNieuw.removeLayer(miniKaartNieuwMarkerObj); miniKaartNieuwMarkerObj = null; }
+      miniKaartNieuw.setView(STANDAARD_MIDDEN, 12);
+    }
+    setTimeout(() => miniKaartNieuw.invalidateSize(), 80);
+  }
+
+  function plaatsNieuwVolkMarker(lat, lng){
+    nieuwVolkPositie = { lat, lng };
+    if(miniKaartNieuwMarkerObj){ miniKaartNieuw.removeLayer(miniKaartNieuwMarkerObj); }
+    miniKaartNieuwMarkerObj = L.marker([lat, lng], { icon: bijenIcoon }).addTo(miniKaartNieuw);
+  }
+
+  function gebruikHuidigeLocatie(){
+    if(!navigator.geolocation){ alert('Locatiebepaling wordt niet ondersteund op dit toestel.'); return; }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        miniKaartNieuw.setView([latitude, longitude], 15);
+        plaatsNieuwVolkMarker(latitude, longitude);
+      },
+      () => alert('Kon je locatie niet ophalen. Controleer of locatietoegang is toegestaan, of tik handmatig op de kaart.')
+    );
+  }
+
+  // ----- Mini-kaart bij volk-detail (locatie instellen/aanpassen) -----
+  function initMiniKaartDetail(volk){
+    const startPositie = (volk.lat != null && volk.lng != null) ? [volk.lat, volk.lng] : STANDAARD_MIDDEN;
+
+    if(!miniKaartDetail){
+      miniKaartDetail = L.map('mini-kaart-detail').setView(startPositie, volk.lat != null ? 15 : 12);
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19,
+        attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ'
+      }).addTo(miniKaartDetail);
+      miniKaartDetail.on('click', (e) => {
+        plaatsDetailMarker(e.latlng.lat, e.latlng.lng);
+      });
+    } else {
+      miniKaartDetail.setView(startPositie, volk.lat != null ? 15 : 12);
+    }
+
+    if(miniKaartDetailMarker){ miniKaartDetail.removeLayer(miniKaartDetailMarker); miniKaartDetailMarker = null; }
+    if(volk.lat != null && volk.lng != null){
+      miniKaartDetailMarker = L.marker(startPositie, { icon: bijenIcoon }).addTo(miniKaartDetail);
+    }
+    setTimeout(() => miniKaartDetail.invalidateSize(), 80);
+  }
+
+  function plaatsDetailMarker(lat, lng){
+    const volk = volken.find(v => v.id === huidigVolkId);
+    volk.lat = lat;
+    volk.lng = lng;
+    bewaarVolken(volken);
+    if(miniKaartDetailMarker){ miniKaartDetail.removeLayer(miniKaartDetailMarker); }
+    miniKaartDetailMarker = L.marker([lat, lng], { icon: bijenIcoon }).addTo(miniKaartDetail);
+  }
+
+  function gebruikHuidigeLocatieDetail(){
+    if(!navigator.geolocation){ alert('Locatiebepaling wordt niet ondersteund op dit toestel.'); return; }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        miniKaartDetail.setView([latitude, longitude], 15);
+        plaatsDetailMarker(latitude, longitude);
+      },
+      () => alert('Kon je locatie niet ophalen. Controleer of locatietoegang is toegestaan, of tik handmatig op de kaart.')
+    );
+  }
+
+  // ===== Weerbadge in de header (huidig weer op je locatie) =====
+  // Vuistregel voor geschikt "werkweer": geen neerslag, niet te koud, niet te winderig.
+  // Dit is een indicatie, geen harde waarheid — je eigen inschatting en het gedrag
+  // van je volk blijven leidend.
+  function bepaalWerkWeer(current){
+    const temperatuur = current.temperature_2m;
+    const wind = current.wind_speed_10m;
+    const neerslag = current.precipitation;
+    const code = current.weather_code;
+    const NEERSLAG_CODES = [51,53,55,56,57,61,63,65,66,67,71,73,75,77,80,81,82,85,86,95,96,99];
+    const heeftNeerslag = neerslag > 0 || NEERSLAG_CODES.includes(code);
+
+    if(heeftNeerslag || wind > 25 || temperatuur < 10){
+      return { kleur: 'slecht', tekst: '⛔ Niet ideaal om te werken' };
+    }
+    if(temperatuur < 15 || wind > 15 || code > 2){
+      return { kleur: 'matig', tekst: '⚠️ Matig geschikt' };
+    }
+    return { kleur: 'goed', tekst: '✅ Goed werkweer' };
+  }
+
+  function toonHeaderWeer(lat, lng){
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,weather_code,wind_speed_10m,precipitation&hourly=temperature_2m,weather_code&forecast_days=1&timezone=auto`;
+    fetch(url)
+      .then(response => response.json())
+      .then(data => {
+        const temperatuur = Math.round(data.current.temperature_2m);
+        const icoon = weerIcoon(data.current.weather_code);
+
+        // Uitgebreide weerkaart onderaan het hoofdscherm
+        document.getElementById('weer-nu-icoon').textContent = icoon;
+        document.getElementById('weer-nu-temp').textContent = `${temperatuur}°C`;
+        document.getElementById('weer-nu-wind').textContent = `${Math.round(data.current.wind_speed_10m)} km/u`;
+        document.getElementById('weer-nu-neerslag').textContent = `${data.current.precipitation} mm`;
+
+        // Stoplicht: is dit geschikt weer om de kasten open te maken?
+        const werkWeer = bepaalWerkWeer(data.current);
+        const statusEl = document.getElementById('weer-werk-status');
+        statusEl.className = 'weer-werk-status ' + werkWeer.kleur;
+        statusEl.textContent = werkWeer.tekst;
+
+        // Rij met de komende uren
+        const urenRij = document.getElementById('weer-uren-rij');
+        urenRij.innerHTML = '';
+        const nuTijdstip = new Date();
+        const komendeUren = data.hourly.time
+          .map((tijd, index) => ({
+            tijd: new Date(tijd),
+            temp: Math.round(data.hourly.temperature_2m[index]),
+            code: data.hourly.weather_code[index]
+          }))
+          .filter(uur => uur.tijd > nuTijdstip)
+          .slice(0, 5);
+
+        komendeUren.forEach(uur => {
+          const item = document.createElement('div');
+          item.className = 'weer-uur-item';
+          item.innerHTML = `
+            <span>${uur.tijd.getHours()}u</span>
+            <span class="weer-uur-icoon">${weerIcoon(uur.code)}</span>
+            <span class="weer-uur-temp">${uur.temp}°</span>
+          `;
+          urenRij.appendChild(item);
+        });
+
+        document.getElementById('weer-uitgebreid').style.display = 'block';
+      })
+      .catch(() => { /* geen internetverbinding of service niet bereikbaar — kaart blijft verborgen */ });
+  }
+
+  function initHeaderWeer(){
+    const valTerugOpVolkLocatie = () => {
+      const volkMetLocatie = volken.find(v => v.lat != null && v.lng != null);
+      if(volkMetLocatie) toonHeaderWeer(volkMetLocatie.lat, volkMetLocatie.lng);
+    };
+
+    if(navigator.geolocation){
+      navigator.geolocation.getCurrentPosition(
+        (pos) => toonHeaderWeer(pos.coords.latitude, pos.coords.longitude),
+        () => valTerugOpVolkLocatie(),
+        { timeout: 5000 }
+      );
+    } else {
+      valTerugOpVolkLocatie();
+    }
+  }
+
+  // ===== Service worker registreren (voor installeerbare app + offline gebruik) =====
+  // Werkt alleen wanneer de app via https (of localhost) wordt gehost — bij het lokaal
+  // openen van dit bestand (file://) mislukt dit onopvallend, de app blijft gewoon werken.
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').then((registratie) => {
+        registratie.addEventListener('updatefound', () => {
+          const nieuweWorker = registratie.installing;
+          if(!nieuweWorker) return;
+          nieuweWorker.addEventListener('statechange', () => {
+            if(nieuweWorker.state === 'installed' && navigator.serviceWorker.controller){
+              toonUpdateBanner();
+            }
+          });
+        });
+      }).catch(() => { /* geen probleem, bijv. bij lokaal geopend bestand */ });
+    });
+  }
+
+  function toonUpdateBanner(){
+    const banner = document.createElement('div');
+    banner.textContent = '🔄 Nieuwe versie beschikbaar — tik om te vernieuwen';
+    banner.style.cssText = 'position:fixed; bottom:0; left:0; right:0; background:#3A2317; color:#FBF6E9; padding:14px; text-align:center; z-index:99999; font-family:"Source Sans 3",sans-serif; font-weight:700; cursor:pointer;';
+    banner.onclick = () => window.location.reload();
+    document.body.appendChild(banner);
+  }
+
+  // Bij opstarten
+  renderOverzicht();
+  initHeaderWeer();
+</script>
+</body>
+</html>
