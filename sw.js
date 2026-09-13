@@ -1,8 +1,10 @@
 // ImkerApp service worker
-// Zorgt dat de app zelf (het "casco") ook zonder internetverbinding opent.
-// Kaarttegels en het actuele weer blijven wel een internetverbinding nodig hebben.
+// Zorgt dat de app zelf (het "casco") ook zonder internetverbinding opent,
+// maar geeft altijd voorrang aan de nieuwste versie zodra er internet is
+// (zodat je nooit meer handmatig het icoon hoeft te verwijderen en opnieuw
+// toe te voegen om een update te zien).
 
-const CACHE_NAAM = 'imkerapp-v1';
+const CACHE_NAAM = 'imkerapp-v2';
 
 const APP_SHELL = [
   './',
@@ -35,33 +37,16 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
 
-  const url = new URL(request.url);
-  const isAppShell = url.origin === self.location.origin;
-
-  if (isAppShell) {
-    // App-eigen bestanden: toon direct uit cache (snel, werkt offline),
-    // en ververs de cache op de achtergrond met de nieuwste versie.
-    event.respondWith(
-      caches.match(request).then((cachedResponse) => {
-        const netwerkFetch = fetch(request)
-          .then((netwerkResponse) => {
-            caches.open(CACHE_NAAM).then((cache) => cache.put(request, netwerkResponse.clone()));
-            return netwerkResponse;
-          })
-          .catch(() => cachedResponse);
-        return cachedResponse || netwerkFetch;
+  // Netwerk eerst voor alles (app-eigen bestanden én externe bronnen zoals
+  // kaarttegels, lettertypen, Leaflet/Chart.js, het weer): zo zie je altijd
+  // de nieuwste versie zodra je online bent. Alleen zonder internetverbinding
+  // valt de app terug op wat eerder is opgeslagen.
+  event.respondWith(
+    fetch(request)
+      .then((netwerkResponse) => {
+        caches.open(CACHE_NAAM).then((cache) => cache.put(request, netwerkResponse.clone())).catch(() => {});
+        return netwerkResponse;
       })
-    );
-  } else {
-    // Externe bronnen (kaarttegels, lettertypen, Leaflet/Chart.js, het weer):
-    // probeer eerst het netwerk, val anders terug op wat eerder is opgeslagen.
-    event.respondWith(
-      fetch(request)
-        .then((netwerkResponse) => {
-          caches.open(CACHE_NAAM).then((cache) => cache.put(request, netwerkResponse.clone())).catch(() => {});
-          return netwerkResponse;
-        })
-        .catch(() => caches.match(request))
-    );
-  }
+      .catch(() => caches.match(request))
+  );
 });
