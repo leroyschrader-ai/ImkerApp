@@ -1287,17 +1287,26 @@
       <h2>Volken vergelijken</h2>
     </div>
     <div style="padding:20px;">
-      <p class="kaart-hint">Kies twee of meer volken om broednest en varroa naast elkaar te zien.</p>
+      <p class="kaart-hint">Kies twee of meer volken om naast elkaar te zien.</p>
       <div id="vergelijk-selectie" class="checkbox-lijst" style="margin-bottom:16px;"></div>
 
+      <div class="veld">
+        <label for="vergelijk-metriek">Wat wil je vergelijken?</label>
+        <select id="vergelijk-metriek" onchange="renderVergelijking()">
+          <option value="broednest">Broednestdekking</option>
+          <option value="varroa">Varroatelling</option>
+          <option value="voedsel">Voedselvoorraad</option>
+          <option value="temperament">Temperament</option>
+          <option value="broedbakken">Aantal broedbakken</option>
+          <option value="honingkamers">Aantal honingkamers</option>
+          <option value="gezondheid">Aantal gezondheidssignalen</option>
+        </select>
+      </div>
+
       <div id="vergelijk-grafieken" style="display:none;">
-        <div class="sectie-titel">Broednestdekking</div>
+        <div class="sectie-titel" id="vergelijk-grafiek-titel">Broednestdekking</div>
         <div class="grafiek-kaart">
-          <div class="grafiek-vlak"><canvas id="grafiek-vergelijk-broednest"></canvas></div>
-        </div>
-        <div class="sectie-titel">Varroatelling</div>
-        <div class="grafiek-kaart">
-          <div class="grafiek-vlak"><canvas id="grafiek-vergelijk-varroa"></canvas></div>
+          <div class="grafiek-vlak"><canvas id="grafiek-vergelijk"></canvas></div>
         </div>
       </div>
       <div id="vergelijk-leeg" class="lege-staat" style="padding:24px 10px;">
@@ -1664,9 +1673,48 @@
   }
 
   // ===== Volken vergelijken =====
-  let grafiekVergelijkBroednest = null;
-  let grafiekVergelijkVarroa = null;
+  let grafiekVergelijk = null;
   const VERGELIJK_KLEUREN = ['#C6871F', '#6B7F5E', '#B5541F', '#1E88E5', '#8E24AA', '#3A2317'];
+
+  const VERGELIJK_METRIEKEN = {
+    broednest: {
+      titel: 'Broednestdekking',
+      haalWaarde: insp => insp.broednest ? Number(insp.broednest) : null,
+      yMin: 1, yMax: 5
+    },
+    varroa: {
+      titel: 'Varroatelling',
+      haalWaarde: insp => insp.varroa != null ? insp.varroa : null,
+      yMin: 0, yMax: undefined
+    },
+    voedsel: {
+      titel: 'Voedselvoorraad',
+      haalWaarde: insp => insp.voedsel ? { weinig: 1, voldoende: 2, veel: 3 }[insp.voedsel] : null,
+      yMin: 1, yMax: 3,
+      yLabels: { 1: 'Weinig', 2: 'Voldoende', 3: 'Veel' }
+    },
+    temperament: {
+      titel: 'Temperament',
+      haalWaarde: insp => insp.temperament ? { rustig: 1, normaal: 2, fel: 3 }[insp.temperament] : null,
+      yMin: 1, yMax: 3,
+      yLabels: { 1: 'Rustig', 2: 'Normaal', 3: 'Fel' }
+    },
+    broedbakken: {
+      titel: 'Aantal broedbakken',
+      haalWaarde: insp => insp.broedbakken != null ? insp.broedbakken : null,
+      yMin: 0, yMax: undefined
+    },
+    honingkamers: {
+      titel: 'Aantal honingkamers',
+      haalWaarde: insp => insp.honingkamers != null ? insp.honingkamers : null,
+      yMin: 0, yMax: undefined
+    },
+    gezondheid: {
+      titel: 'Aantal gezondheidssignalen',
+      haalWaarde: insp => insp.gezondheid ? insp.gezondheid.filter(g => g !== 'geen').length : 0,
+      yMin: 0, yMax: undefined
+    }
+  };
 
   function toonVergelijkScherm(){
     volken = laadVolken();
@@ -1678,6 +1726,7 @@
       label.innerHTML = `<input type="checkbox" value="${volk.id}" onchange="renderVergelijking()"> ${escapeHtml(volk.naam)}`;
       selectieEl.appendChild(label);
     });
+    document.getElementById('vergelijk-metriek').value = 'broednest';
     renderVergelijking();
     toonScherm('scherm-vergelijken');
   }
@@ -1695,49 +1744,39 @@
     grafiekenEl.style.display = 'block';
     leegEl.style.display = 'none';
 
+    const metriekSleutel = document.getElementById('vergelijk-metriek').value;
+    const metriek = VERGELIJK_METRIEKEN[metriekSleutel];
+    document.getElementById('vergelijk-grafiek-titel').textContent = metriek.titel;
+
     const tikCallback = (waarde) => new Date(waarde).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' });
-    const vergelijkOpties = (min, max) => ({
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: true, position: 'bottom', labels: { boxWidth: 10, font: { family: "'Source Sans 3', sans-serif", size: 11 }, color: '#6B4E3D' } }
-      },
-      scales: {
-        x: { type: 'linear', ticks: { callback: tikCallback, color: '#6B4E3D', font: { size: 10 } }, grid: { color: '#F1E8CE' } },
-        y: { min: min, max: max, ticks: { color: '#6B4E3D', font: { size: 10 } }, grid: { color: '#F1E8CE' } }
-      }
-    });
+    const yTikCallback = metriek.yLabels
+      ? (waarde) => metriek.yLabels[waarde] || ''
+      : undefined;
 
-    const broednestDatasets = [];
-    const varroaDatasets = [];
-
-    geselecteerdeIds.forEach((volkId, index) => {
+    const datasets = geselecteerdeIds.map((volkId, index) => {
       const volk = volken.find(v => v.id === volkId);
       const kleur = VERGELIJK_KLEUREN[index % VERGELIJK_KLEUREN.length];
-
-      const broednestData = volk.inspecties
-        .filter(insp => insp.broednest)
-        .map(insp => ({ x: new Date(insp.datum).getTime(), y: Number(insp.broednest) }));
-      const varroaData = volk.inspecties
-        .filter(insp => insp.varroa != null)
-        .map(insp => ({ x: new Date(insp.datum).getTime(), y: insp.varroa }));
-
-      broednestDatasets.push({ label: volk.naam, data: broednestData, borderColor: kleur, backgroundColor: kleur, fill: false, tension: 0.25, pointRadius: 4, borderWidth: 2.5 });
-      varroaDatasets.push({ label: volk.naam, data: varroaData, borderColor: kleur, backgroundColor: kleur, fill: false, tension: 0.25, pointRadius: 4, borderWidth: 2.5 });
+      const data = volk.inspecties
+        .map(insp => ({ x: new Date(insp.datum).getTime(), y: metriek.haalWaarde(insp) }))
+        .filter(punt => punt.y != null);
+      return { label: volk.naam, data: data, borderColor: kleur, backgroundColor: kleur, fill: false, tension: 0.25, pointRadius: 4, borderWidth: 2.5 };
     });
 
-    if(grafiekVergelijkBroednest) grafiekVergelijkBroednest.destroy();
-    grafiekVergelijkBroednest = new Chart(document.getElementById('grafiek-vergelijk-broednest'), {
+    if(grafiekVergelijk) grafiekVergelijk.destroy();
+    grafiekVergelijk = new Chart(document.getElementById('grafiek-vergelijk'), {
       type: 'line',
-      data: { datasets: broednestDatasets },
-      options: vergelijkOpties(1, 5)
-    });
-
-    if(grafiekVergelijkVarroa) grafiekVergelijkVarroa.destroy();
-    grafiekVergelijkVarroa = new Chart(document.getElementById('grafiek-vergelijk-varroa'), {
-      type: 'line',
-      data: { datasets: varroaDatasets },
-      options: vergelijkOpties(0, undefined)
+      data: { datasets: datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: true, position: 'bottom', labels: { boxWidth: 10, font: { family: "'Source Sans 3', sans-serif", size: 11 }, color: '#6B4E3D' } }
+        },
+        scales: {
+          x: { type: 'linear', ticks: { callback: tikCallback, color: '#6B4E3D', font: { size: 10 } }, grid: { color: '#F1E8CE' } },
+          y: { min: metriek.yMin, max: metriek.yMax, ticks: { callback: yTikCallback, stepSize: metriek.yLabels ? 1 : undefined, color: '#6B4E3D', font: { size: 10 } }, grid: { color: '#F1E8CE' } }
+        }
+      }
     });
   }
 
