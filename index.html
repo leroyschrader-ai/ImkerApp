@@ -2821,17 +2821,17 @@
 
   function inwinterenOpslaan(){
     const volk = volken.find(v => v.id === huidigVolkId);
+    if(!volk.inwinteren) volk.inwinteren = {};
     const voerramenVal = document.getElementById('inwinter-voerramen').value;
     const kgPerRaamVal = document.getElementById('inwinter-kg-per-raam').value;
     const broedramenVal = document.getElementById('inwinter-broedramen').value;
     const doelKgVal = document.getElementById('inwinter-doel-kg').value;
 
-    volk.inwinteren = {
-      voerramen: voerramenVal !== '' ? Number(voerramenVal) : null,
-      kgPerRaam: kgPerRaamVal !== '' ? Number(kgPerRaamVal) : null,
-      broedramen: broedramenVal !== '' ? Number(broedramenVal) : null,
-      doelVoerKg: doelKgVal !== '' ? Number(doelKgVal) : null
-    };
+    // Alleen deze velden bijwerken — het al bijgevoerde totaal (bijgevoerdKg) blijft ongemoeid
+    volk.inwinteren.voerramen = voerramenVal !== '' ? Number(voerramenVal) : null;
+    volk.inwinteren.kgPerRaam = kgPerRaamVal !== '' ? Number(kgPerRaamVal) : null;
+    volk.inwinteren.broedramen = broedramenVal !== '' ? Number(broedramenVal) : null;
+    volk.inwinteren.doelVoerKg = doelKgVal !== '' ? Number(doelKgVal) : null;
     bewaarVolken(volken);
     toonInwinterResultaat(volk);
   }
