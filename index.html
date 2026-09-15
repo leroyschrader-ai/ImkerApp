@@ -1000,6 +1000,40 @@
         <p>Nog geen inspecties voor dit volk.</p>
       </div>
 
+      <button type="button" class="inklap-header" onclick="wisselVarroaSectie()">
+        <span>🐜 Varroacontrole</span>
+        <span id="varroa-toggle-icoon">▸</span>
+      </button>
+      <div id="varroa-inhoud" class="grafiek-kaart" style="display:none;">
+        <p id="varroa-totalen" class="kaart-hint" style="margin-top:0;"></p>
+
+        <div class="veld">
+          <label for="varroa-datum">Datum (plank verwijderd/afgelezen)</label>
+          <input type="date" id="varroa-datum" onchange="berekenVarroaDagenAutomatisch()">
+        </div>
+        <div style="display:flex; gap:8px;">
+          <div class="veld" style="flex:1;">
+            <label for="varroa-aantal-mijten">Aantal mijten geteld</label>
+            <input type="number" id="varroa-aantal-mijten" min="0" step="1" placeholder="Bijv. 24">
+          </div>
+          <div class="veld" style="flex:1;">
+            <label for="varroa-aantal-dagen">Aantal dagen plank erin</label>
+            <input type="number" id="varroa-aantal-dagen" min="1" step="1" placeholder="Bijv. 3">
+          </div>
+        </div>
+        <p id="varroa-dagen-hint" class="kaart-hint" style="margin-top:-8px; display:none;"></p>
+        <div class="veld">
+          <label for="varroa-notitie">Notitie (optioneel)</label>
+          <input type="text" id="varroa-notitie" placeholder="Bijv. na behandeling">
+        </div>
+        <button class="knop-secundair" onclick="varroacontroleToevoegen()">+ Controle toevoegen</button>
+
+        <div class="grafiek-vlak" style="margin-top:16px; height:150px;"><canvas id="grafiek-varroacontrole"></canvas></div>
+
+        <div id="varroa-lijst" style="margin-top:16px;"></div>
+        <div id="varroa-geen" class="kaart-hint" style="display:none;">Nog geen varroacontroles geregistreerd voor dit volk.</div>
+      </div>
+
       <button type="button" class="inklap-header" onclick="wisselOogstSectie()">
         <span>🍯 Honingoogst</span>
         <span id="oogst-toggle-icoon">▸</span>
@@ -2720,6 +2754,147 @@
   // ===== Volk detail renderen =====
 
   // ===== Inwinteren: kg voer en broedramen bijhouden, en het tekort berekenen =====
+  // ===== Varroacontrole per volk (los van inspecties, met dagen-normalisatie) =====
+  let grafiekVarroacontrole = null;
+
+  function wisselVarroaSectie(){
+    const inhoud = document.getElementById('varroa-inhoud');
+    const header = inhoud.previousElementSibling;
+    const icoon = document.getElementById('varroa-toggle-icoon');
+    const openen = inhoud.style.display === 'none';
+    inhoud.style.display = openen ? 'block' : 'none';
+    header.classList.toggle('open', openen);
+    icoon.textContent = openen ? '▾' : '▸';
+  }
+
+  // Berekent automatisch het aantal dagen sinds de vorige controle, op basis van de
+  // ingevulde datum — de gebruiker kan dit altijd nog handmatig overschrijven.
+  function berekenVarroaDagenAutomatisch(){
+    const datumVal = document.getElementById('varroa-datum').value;
+    const hintEl = document.getElementById('varroa-dagen-hint');
+    if(!datumVal){ hintEl.style.display = 'none'; return; }
+
+    const volk = volken.find(v => v.id === huidigVolkId);
+    const controles = (volk && volk.varroacontroles) || [];
+    if(controles.length === 0){ hintEl.style.display = 'none'; return; }
+
+    const laatste = controles[controles.length - 1];
+    const dagenVerschil = Math.round((new Date(datumVal) - new Date(laatste.datum)) / (1000 * 60 * 60 * 24));
+
+    if(dagenVerschil > 0){
+      document.getElementById('varroa-aantal-dagen').value = dagenVerschil;
+      hintEl.textContent = `Automatisch berekend: ${dagenVerschil} dag${dagenVerschil === 1 ? '' : 'en'} sinds de vorige controle (${formatDatum(laatste.datum)}). Pas dit gerust aan als de plank op een ander moment is geplaatst.`;
+      hintEl.style.display = 'block';
+    } else {
+      hintEl.textContent = 'Kon het aantal dagen niet automatisch bepalen — vul het zelf in.';
+      hintEl.style.display = 'block';
+    }
+  }
+
+  function varroacontroleToevoegen(){
+    const datum = document.getElementById('varroa-datum').value;
+    const mijtenVal = document.getElementById('varroa-aantal-mijten').value;
+    const dagenVal = document.getElementById('varroa-aantal-dagen').value;
+    if(!datum){ alert('Kies een datum.'); return; }
+    if(mijtenVal === '' || Number(mijtenVal) < 0){ alert('Vul een geldig aantal mijten in.'); return; }
+    if(dagenVal === '' || Number(dagenVal) <= 0){ alert('Vul een geldig aantal dagen in (minimaal 1).'); return; }
+
+    const volk = volken.find(v => v.id === huidigVolkId);
+    if(!volk.varroacontroles) volk.varroacontroles = [];
+    const aantalMijten = Number(mijtenVal);
+    const aantalDagen = Number(dagenVal);
+    volk.varroacontroles.push({
+      id: 'varroacontrole_' + Math.random().toString(36).slice(2) + Date.now(),
+      datum: datum,
+      aantalMijten: aantalMijten,
+      aantalDagen: aantalDagen,
+      gemiddeldePerDag: aantalMijten / aantalDagen,
+      notitie: document.getElementById('varroa-notitie').value.trim()
+    });
+    volk.varroacontroles.sort((a, b) => new Date(a.datum) - new Date(b.datum));
+    bewaarVolken(volken);
+
+    document.getElementById('varroa-datum').value = new Date().toISOString().split('T')[0];
+    document.getElementById('varroa-aantal-mijten').value = '';
+    document.getElementById('varroa-aantal-dagen').value = '';
+    document.getElementById('varroa-notitie').value = '';
+    renderVarroacontrole(volk);
+    berekenVarroaDagenAutomatisch();
+  }
+
+  function varroacontroleVerwijderen(controleId){
+    if(!confirm('Deze varroacontrole verwijderen?')) return;
+    const volk = volken.find(v => v.id === huidigVolkId);
+    volk.varroacontroles = volk.varroacontroles.filter(c => c.id !== controleId);
+    bewaarVolken(volken);
+    renderVarroacontrole(volk);
+  }
+
+  function renderVarroacontrole(volk){
+    const controles = volk.varroacontroles || [];
+    const lijstEl = document.getElementById('varroa-lijst');
+    const geenEl = document.getElementById('varroa-geen');
+    const totalenEl = document.getElementById('varroa-totalen');
+    lijstEl.innerHTML = '';
+
+    if(controles.length === 0){
+      totalenEl.textContent = 'Nog geen controles geregistreerd.';
+      geenEl.style.display = 'block';
+    } else {
+      const laatste = controles[controles.length - 1];
+      totalenEl.innerHTML = `Laatste controle: <strong>${laatste.gemiddeldePerDag.toFixed(1)} mijten/dag</strong> (${formatDatum(laatste.datum)})`;
+      geenEl.style.display = 'none';
+    }
+
+    [...controles].reverse().forEach(controle => {
+      const item = document.createElement('div');
+      item.className = 'agenda-taak-item';
+      item.innerHTML = `
+        <div class="agenda-taak-info">
+          <div class="agenda-taak-datum">${formatDatum(controle.datum)} — ${controle.gemiddeldePerDag.toFixed(1)} mijten/dag</div>
+          <div class="agenda-taak-type">${controle.aantalMijten} mijten over ${controle.aantalDagen} dag${controle.aantalDagen === 1 ? '' : 'en'}</div>
+          ${controle.notitie ? `<div class="agenda-taak-notitie">"${escapeHtml(controle.notitie)}"</div>` : ''}
+        </div>
+        <div class="agenda-taak-acties">
+          <span class="agenda-taak-link" onclick="varroacontroleVerwijderen('${controle.id}')">Verwijderen</span>
+        </div>
+      `;
+      lijstEl.appendChild(item);
+    });
+
+    if(controles.length >= 2){
+      const data = controles.map(c => ({ x: new Date(c.datum).getTime(), y: Number(c.gemiddeldePerDag.toFixed(2)) }));
+      if(grafiekVarroacontrole) grafiekVarroacontrole.destroy();
+      grafiekVarroacontrole = new Chart(document.getElementById('grafiek-varroacontrole'), {
+        type: 'line',
+        data: {
+          datasets: [{
+            label: 'Mijten/dag',
+            data: data,
+            borderColor: '#B5541F',
+            backgroundColor: 'rgba(181,84,31,0.15)',
+            fill: true,
+            tension: 0.25,
+            pointRadius: 4,
+            borderWidth: 2.5
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { type: 'linear', ticks: { callback: (v) => new Date(v).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' }), color: '#6B4E3D', font: { size: 10 } }, grid: { color: '#F1E8CE' } },
+            y: { min: 0, ticks: { color: '#6B4E3D', font: { size: 10 } }, grid: { color: '#F1E8CE' } }
+          }
+        }
+      });
+    } else if(grafiekVarroacontrole){
+      grafiekVarroacontrole.destroy();
+      grafiekVarroacontrole = null;
+    }
+  }
+
   // ===== Honingoogst per volk =====
   function wisselOogstSectie(){
     const inhoud = document.getElementById('oogst-inhoud');
@@ -2978,6 +3153,17 @@
     document.getElementById('inwinter-inhoud').style.display = 'none';
     document.getElementById('inwinter-toggle-icoon').textContent = '▸';
     document.getElementById('inwinter-inhoud').previousElementSibling.classList.remove('open');
+
+    // Varroacontrole-sectie vullen en standaard dichtgeklapt tonen
+    renderVarroacontrole(volk);
+    document.getElementById('varroa-datum').value = new Date().toISOString().split('T')[0];
+    document.getElementById('varroa-aantal-mijten').value = '';
+    document.getElementById('varroa-aantal-dagen').value = '';
+    document.getElementById('varroa-notitie').value = '';
+    berekenVarroaDagenAutomatisch();
+    document.getElementById('varroa-inhoud').style.display = 'none';
+    document.getElementById('varroa-toggle-icoon').textContent = '▸';
+    document.getElementById('varroa-inhoud').previousElementSibling.classList.remove('open');
 
     // Honingoogst-sectie vullen en standaard dichtgeklapt tonen
     renderOogst(volk);
