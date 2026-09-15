@@ -1006,6 +1006,10 @@
       </button>
       <div id="varroa-inhoud" class="grafiek-kaart" style="display:none;">
         <p id="varroa-totalen" class="kaart-hint" style="margin-top:0;"></p>
+        <div id="varroa-controle-waarschuwing" class="alarm-banner" style="display:none; margin-bottom:14px;">
+          <span class="icoon">⚠️</span>
+          <span id="varroa-controle-waarschuwing-tekst"></span>
+        </div>
 
         <div class="veld">
           <label for="varroa-datum">Datum (plank verwijderd/afgelezen)</label>
@@ -2830,20 +2834,75 @@
     renderVarroacontrole(volk);
   }
 
+  // Seizoensafhankelijke actiegrens (mijten/dag) — indicatief, gebaseerd op algemene
+  // vuistregels: in de nazomer/vroege herfst worden de winterbijen opgekweekt, dus
+  // is de kritieke grens dan veel lager dan in de volle zomer. Pas gerust aan naar
+  // wat in jouw regio/methode gangbaar is.
+  // Seizoensafhankelijke grenzen (mijten/dag), met een aparte "normaal"- en
+  // "gevarenzone"-grens per periode, plus concreet advies bij de gevarenzone.
+  function bepaalVarroaSeizoenInfo(datumStr){
+    const maand = new Date(datumStr).getMonth() + 1; // 1 = januari
+    if(maand >= 1 && maand <= 3){
+      return { periode: 'januari–maart', normaal: 0.5, gevarenzone: 1, advies: 'Zorgwekkend vroeg in het seizoen.' };
+    }
+    if(maand >= 4 && maand <= 6){
+      return { periode: 'april–juni', normaal: 3, gevarenzone: 5, advies: 'Direct actie ondernemen, bijv. darrenbroed koppen.' };
+    }
+    if(maand >= 7 && maand <= 8){
+      return { periode: 'juli–augustus', normaal: 5, gevarenzone: 10, advies: 'Direct zomerbehandeling starten na de honingoogst.' };
+    }
+    if(maand >= 9 && maand <= 10){
+      return { periode: 'september–oktober', normaal: 1, gevarenzone: 3, advies: 'Nabehandeling noodzakelijk.' };
+    }
+    return { periode: 'november–december', normaal: 1, gevarenzone: 1.5, advies: 'Oxaalzuurbehandeling in de broedloze periode.' };
+  }
+
+  function bepaalVarroaStatus(waarde, datumStr){
+    const info = bepaalVarroaSeizoenInfo(datumStr);
+    if(waarde >= info.gevarenzone) return { niveau: 'gevarenzone', info };
+    if(waarde >= info.normaal) return { niveau: 'let-op', info };
+    return { niveau: 'goed', info };
+  }
+
   function renderVarroacontrole(volk){
     const controles = volk.varroacontroles || [];
     const lijstEl = document.getElementById('varroa-lijst');
     const geenEl = document.getElementById('varroa-geen');
     const totalenEl = document.getElementById('varroa-totalen');
+    const waarschuwingEl = document.getElementById('varroa-controle-waarschuwing');
     lijstEl.innerHTML = '';
 
     if(controles.length === 0){
       totalenEl.textContent = 'Nog geen controles geregistreerd.';
       geenEl.style.display = 'block';
+      waarschuwingEl.style.display = 'none';
     } else {
       const laatste = controles[controles.length - 1];
       totalenEl.innerHTML = `Laatste controle: <strong>${laatste.gemiddeldePerDag.toFixed(1)} mijten/dag</strong> (${formatDatum(laatste.datum)})`;
       geenEl.style.display = 'none';
+
+      const status = bepaalVarroaStatus(laatste.gemiddeldePerDag, laatste.datum);
+      const waarschuwingTekstEl = document.getElementById('varroa-controle-waarschuwing-tekst');
+
+      if(status.niveau === 'gevarenzone'){
+        waarschuwingEl.className = 'alarm-banner';
+        waarschuwingEl.style.background = '';
+        waarschuwingEl.style.borderColor = '';
+        waarschuwingEl.style.color = '';
+        waarschuwingTekstEl.textContent =
+          `Gevarenzone voor ${status.info.periode} (grens: ${status.info.gevarenzone}/dag): ${laatste.gemiddeldePerDag.toFixed(1)} mijten/dag. ${status.info.advies}`;
+        waarschuwingEl.style.display = 'flex';
+      } else if(status.niveau === 'let-op'){
+        waarschuwingEl.className = 'alarm-banner';
+        waarschuwingEl.style.background = 'var(--creme-dark)';
+        waarschuwingEl.style.borderColor = 'var(--goud-donker)';
+        waarschuwingEl.style.color = 'var(--bruin-zacht)';
+        waarschuwingTekstEl.textContent =
+          `Iets verhoogd voor ${status.info.periode} (normaal: onder ${status.info.normaal}/dag): ${laatste.gemiddeldePerDag.toFixed(1)} mijten/dag. Hou dit in de gaten.`;
+        waarschuwingEl.style.display = 'flex';
+      } else {
+        waarschuwingEl.style.display = 'none';
+      }
     }
 
     [...controles].reverse().forEach(controle => {
@@ -2864,6 +2923,12 @@
 
     if(controles.length >= 2){
       const data = controles.map(c => ({ x: new Date(c.datum).getTime(), y: Number(c.gemiddeldePerDag.toFixed(2)) }));
+      const puntKleuren = controles.map(c => {
+        const niveau = bepaalVarroaStatus(c.gemiddeldePerDag, c.datum).niveau;
+        if(niveau === 'gevarenzone') return '#B5541F';
+        if(niveau === 'let-op') return '#E6A100';
+        return '#6B7F5E';
+      });
       if(grafiekVarroacontrole) grafiekVarroacontrole.destroy();
       grafiekVarroacontrole = new Chart(document.getElementById('grafiek-varroacontrole'), {
         type: 'line',
@@ -2873,9 +2938,12 @@
             data: data,
             borderColor: '#B5541F',
             backgroundColor: 'rgba(181,84,31,0.15)',
+            pointBackgroundColor: puntKleuren,
+            pointBorderColor: '#FFFDF8',
+            pointBorderWidth: 1.5,
             fill: true,
             tension: 0.25,
-            pointRadius: 4,
+            pointRadius: 5,
             borderWidth: 2.5
           }]
         },
