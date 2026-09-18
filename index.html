@@ -973,10 +973,6 @@
           <div class="grafiek-titel">Broednestdekking (schaal 1-5)</div>
           <div class="grafiek-vlak"><canvas id="grafiek-broednest"></canvas></div>
         </div>
-        <div class="grafiek-kaart">
-          <div class="grafiek-titel">Varroatelling</div>
-          <div class="grafiek-vlak"><canvas id="grafiek-varroa"></canvas></div>
-        </div>
       </div>
       <div id="geen-grafiek" class="geen-grafiek" style="display:none;">
         Nog te weinig inspecties (minimaal 2) om een verloop te tonen.
@@ -989,7 +985,7 @@
           <div class="grafiek-vlak"><canvas id="grafiek-jaartrend-broednest"></canvas></div>
         </div>
         <div class="grafiek-kaart">
-          <div class="grafiek-titel">Gemiddelde varroatelling per jaar</div>
+          <div class="grafiek-titel">Gemiddelde varroa per jaar (mijten/dag)</div>
           <div class="grafiek-vlak"><canvas id="grafiek-jaartrend-varroa"></canvas></div>
         </div>
       </div>
@@ -1169,12 +1165,6 @@
           <button type="button" class="keuze-btn" data-waarde="normaal" onclick="kiesOptie('groep-temperament', this, true)">Normaal</button>
           <button type="button" class="keuze-btn" data-waarde="fel" onclick="kiesOptie('groep-temperament', this, true)">Fel</button>
         </div>
-      </div>
-
-      <div class="veld">
-        <label for="input-varroa">Varroatelling (aantal mijten geteld)</label>
-        <input type="number" id="input-varroa" min="0" step="1" placeholder="Bijv. 0, 3, 12...">
-        <p class="kaart-hint" style="margin-top:6px;">Bijv. het aantal mijten op de zeefbodem na 24 uur, of via de wasmestelling — vul in op de manier die je gewend bent.</p>
       </div>
 
       <div class="veld">
@@ -1409,7 +1399,7 @@
           <div id="stat-aantal-inspecties" class="stat-getal">–</div>
         </div>
         <div class="stat-kaart">
-          <div class="stat-label">Gem. varroatelling</div>
+          <div class="stat-label">Gem. varroa (mijten/dag)</div>
           <div id="stat-gem-varroa" class="stat-getal">–</div>
         </div>
         <div class="stat-kaart">
@@ -1717,38 +1707,45 @@
   const VERGELIJK_METRIEKEN = {
     broednest: {
       titel: 'Broednestdekking',
+      bron: 'inspecties',
       haalWaarde: insp => insp.broednest ? Number(insp.broednest) : null,
       yMin: 1, yMax: 5
     },
     varroa: {
-      titel: 'Varroatelling',
-      haalWaarde: insp => insp.varroa != null ? insp.varroa : null,
+      titel: 'Varroa (mijten/dag)',
+      bron: 'varroacontroles',
+      haalWaarde: controle => controle.gemiddeldePerDag,
       yMin: 0, yMax: undefined
     },
     voedsel: {
       titel: 'Voedselvoorraad',
+      bron: 'inspecties',
       haalWaarde: insp => insp.voedsel ? { weinig: 1, voldoende: 2, veel: 3 }[insp.voedsel] : null,
       yMin: 1, yMax: 3,
       yLabels: { 1: 'Weinig', 2: 'Voldoende', 3: 'Veel' }
     },
     temperament: {
       titel: 'Temperament',
+      bron: 'inspecties',
       haalWaarde: insp => insp.temperament ? { rustig: 1, normaal: 2, fel: 3 }[insp.temperament] : null,
       yMin: 1, yMax: 3,
       yLabels: { 1: 'Rustig', 2: 'Normaal', 3: 'Fel' }
     },
     broedbakken: {
       titel: 'Aantal broedbakken',
+      bron: 'inspecties',
       haalWaarde: insp => insp.broedbakken != null ? insp.broedbakken : null,
       yMin: 0, yMax: undefined
     },
     honingkamers: {
       titel: 'Aantal honingkamers',
+      bron: 'inspecties',
       haalWaarde: insp => insp.honingkamers != null ? insp.honingkamers : null,
       yMin: 0, yMax: undefined
     },
     gezondheid: {
       titel: 'Aantal gezondheidssignalen',
+      bron: 'inspecties',
       haalWaarde: insp => insp.gezondheid ? insp.gezondheid.filter(g => g !== 'geen').length : 0,
       yMin: 0, yMax: undefined
     }
@@ -1794,8 +1791,9 @@
     const datasets = geselecteerdeIds.map((volkId, index) => {
       const volk = volken.find(v => v.id === volkId);
       const kleur = VERGELIJK_KLEUREN[index % VERGELIJK_KLEUREN.length];
-      const data = volk.inspecties
-        .map(insp => ({ x: new Date(insp.datum).getTime(), y: metriek.haalWaarde(insp) }))
+      const bronData = metriek.bron === 'varroacontroles' ? (volk.varroacontroles || []) : volk.inspecties;
+      const data = bronData
+        .map(item => ({ x: new Date(item.datum).getTime(), y: metriek.haalWaarde(item) }))
         .filter(punt => punt.y != null);
       return { label: volk.naam, data: data, borderColor: kleur, backgroundColor: kleur, fill: false, tension: 0.25, pointRadius: 4, borderWidth: 2.5 };
     });
@@ -1862,7 +1860,7 @@
 
       const aantal = groep.length;
       const felAantal = groep.filter(i => i.temperament === 'fel').length;
-      const issueAantal = groep.filter(i => (i.gezondheid && i.gezondheid.some(g => g !== 'geen')) || (i.varroa != null && i.varroa >= VARROA_LET_OP_DREMPEL)).length;
+      const issueAantal = groep.filter(i => i.gezondheid && i.gezondheid.some(g => g !== 'geen')).length;
       const zwermAantal = groep.filter(i => i.gezondheid && i.gezondheid.includes('zwermneiging')).length;
 
       const felPct = Math.round((felAantal / aantal) * 100);
@@ -1905,9 +1903,14 @@
     document.getElementById('stat-aantal-volken').textContent = volken.length;
     document.getElementById('stat-aantal-inspecties').textContent = inspectiesDitJaar.length;
 
-    const varroaWaarden = inspectiesDitJaar.map(i => i.varroa).filter(v => v != null);
+    const varroaWaarden = [];
+    volken.forEach(volk => {
+      (volk.varroacontroles || []).forEach(c => {
+        if(new Date(c.datum).getFullYear() === dashboardJaar) varroaWaarden.push(c.gemiddeldePerDag);
+      });
+    });
     document.getElementById('stat-gem-varroa').textContent = varroaWaarden.length
-      ? (varroaWaarden.reduce((a,b) => a+b, 0) / varroaWaarden.length).toFixed(1)
+      ? (varroaWaarden.reduce((a,b) => a+b, 0) / varroaWaarden.length).toFixed(1) + '/dag'
       : '–';
 
     const actieveAlarms = volken.filter(v => heeftZwermAlarm(v)).length;
@@ -2034,16 +2037,18 @@
       grid.appendChild(cel);
     }
 
-    // Automatische suggestie op basis van laatste varroatelling
+    // Automatische suggestie op basis van de laatste varroacontrole (seizoensgrens)
     const suggestieEl = document.getElementById('agenda-suggestie');
-    const laatsteInspectie = volk.inspecties[volk.inspecties.length - 1];
     const vandaag = new Date(); vandaag.setHours(0,0,0,0);
     const heeftOpenBehandeling = volk.taken.some(t => t.type === 'varroabehandeling' && !t.afgerond && new Date(t.datum) >= vandaag);
 
-    if(laatsteInspectie && laatsteInspectie.varroa != null && laatsteInspectie.varroa >= VARROA_LET_OP_DREMPEL && !heeftOpenBehandeling){
+    const laatsteVarroaControle = (volk.varroacontroles && volk.varroacontroles.length) ? volk.varroacontroles[volk.varroacontroles.length - 1] : null;
+    const varroaStatus = laatsteVarroaControle ? bepaalVarroaStatus(laatsteVarroaControle.gemiddeldePerDag, laatsteVarroaControle.datum) : null;
+
+    if(varroaStatus && varroaStatus.niveau === 'gevarenzone' && !heeftOpenBehandeling){
       suggestieEl.style.display = 'flex';
       document.getElementById('agenda-suggestie-tekst').innerHTML =
-        `De laatste varroatelling (${laatsteInspectie.varroa}) lag op of boven de aandachtsgrens — overweeg een behandeling te plannen. <span class="agenda-taak-link" style="text-decoration:underline;" onclick="toonNieuweTaakPopup('varroabehandeling')">Nu plannen</span>`;
+        `De laatste varroacontrole (${laatsteVarroaControle.gemiddeldePerDag.toFixed(1)} mijten/dag) ligt in de gevarenzone voor ${varroaStatus.info.periode} — ${varroaStatus.info.advies} <span class="agenda-taak-link" style="text-decoration:underline;" onclick="toonNieuweTaakPopup('varroabehandeling')">Nu plannen</span>`;
     } else {
       suggestieEl.style.display = 'none';
     }
@@ -2327,7 +2332,6 @@
     document.querySelectorAll('#scherm-nieuwe-inspectie .keuze-btn').forEach(b => b.classList.remove('geselecteerd','goed','matig','slecht'));
     document.querySelectorAll('#scherm-nieuwe-inspectie .schaal-bol').forEach(b => b.classList.remove('geselecteerd'));
     document.querySelectorAll('#lijst-gezondheid input').forEach(c => { c.checked = false; c.closest('.checkbox-item').classList.remove('aangevinkt'); });
-    document.getElementById('input-varroa').value = '';
     document.getElementById('input-notitie').value = '';
     document.getElementById('input-moerwissel').checked = false;
     document.getElementById('moerwissel-item').classList.remove('aangevinkt');
@@ -2372,7 +2376,6 @@
       const btn = document.querySelector(`#groep-temperament .keuze-btn[data-waarde="${vorige.temperament}"]`);
       if(btn) kiesOptie('groep-temperament', btn, true);
     }
-    document.getElementById('input-varroa').value = vorige.varroa != null ? vorige.varroa : '';
     document.querySelectorAll('#lijst-gezondheid input').forEach(c => {
       const aangevinkt = vorige.gezondheid && vorige.gezondheid.includes(c.value);
       c.checked = aangevinkt;
@@ -2424,7 +2427,6 @@
       if(btn) kiesOptie('groep-temperament', btn, true);
     }
 
-    document.getElementById('input-varroa').value = insp.varroa != null ? insp.varroa : '';
     document.getElementById('input-notitie').value = insp.notitie || '';
 
     const moerwisselAan = !!insp.moerwissel;
@@ -2531,7 +2533,6 @@
         if(insp.broednest) details.push(`Broednest: ${insp.broednest}/5`);
         if(insp.voedsel) details.push(`Voedsel: ${insp.voedsel}`);
         if(insp.temperament) details.push(`Temperament: ${insp.temperament}`);
-        if(insp.varroa != null) details.push(`Varroatelling: ${insp.varroa}`);
         if(insp.broedbakken != null) details.push(`Broedbakken: ${insp.broedbakken}`);
         if(insp.honingkamers != null) details.push(`Honingkamers: ${insp.honingkamers}`);
         if(insp.gezondheid && insp.gezondheid.some(g => g !== 'geen')) details.push(`Gezondheid: ${insp.gezondheid.filter(g => g !== 'geen').map(gezondheidLabel).join(', ')}`);
@@ -2550,6 +2551,10 @@
     const takenHtml = (volk.taken && volk.taken.length)
       ? volk.taken.map(t => `<li>${formatDatum(t.datum)} — ${taakLabels[t.type] || t.type}${t.afgerond ? ' (afgerond)' : ''}${t.notitie ? ': ' + t.notitie : ''}</li>`).join('')
       : '<li>Geen geplande taken.</li>';
+
+    const varroaHtml = (volk.varroacontroles && volk.varroacontroles.length)
+      ? volk.varroacontroles.map(c => `<li>${formatDatum(c.datum)} — ${c.gemiddeldePerDag.toFixed(1)} mijten/dag (${c.aantalMijten} mijten over ${c.aantalDagen} dag${c.aantalDagen === 1 ? '' : 'en'})${c.notitie ? ': ' + c.notitie : ''}</li>`).join('')
+      : '<li>Geen varroacontroles geregistreerd.</li>';
 
     const html = `
       <!DOCTYPE html>
@@ -2573,6 +2578,9 @@
 
         <h2>Geplande taken</h2>
         <ul>${takenHtml}</ul>
+
+        <h2>Varroacontroles (${(volk.varroacontroles || []).length})</h2>
+        <ul>${varroaHtml}</ul>
 
         <h2>Inspectiegeschiedenis (${volk.inspecties.length})</h2>
         ${inspectiesHtml}
@@ -2617,14 +2625,23 @@
     return dagenSindsDatum(laatste.datum) >= 7;
   }
 
-  const VARROA_LET_OP_DREMPEL = 3; // indicatieve grens, pas aan naar wat gangbaar is in jouw regio/methode
+  // Haalt het seizoensniveau (goed/let-op/gevarenzone) van de meest recente varroacontrole van dit volk
+  function haalLaatsteVarroaNiveau(volk){
+    if(!volk.varroacontroles || volk.varroacontroles.length === 0) return null;
+    const laatsteControle = volk.varroacontroles[volk.varroacontroles.length - 1];
+    return bepaalVarroaStatus(laatsteControle.gemiddeldePerDag, laatsteControle.datum).niveau;
+  }
 
   function bepaalStatus(volk){
     if(heeftZwermAlarm(volk)) return 'zwerm-alarm';
-    if(volk.inspecties.length === 0) return 'onbekend';
+
+    const varroaNiveau = haalLaatsteVarroaNiveau(volk);
+    if(varroaNiveau === 'gevarenzone') return 'probleem';
+
+    if(volk.inspecties.length === 0) return varroaNiveau === 'let-op' ? 'let-op' : 'onbekend';
     const laatste = volk.inspecties[volk.inspecties.length - 1];
     if(laatste.gezondheid.some(g => g !== 'geen')) return 'probleem';
-    if(laatste.varroa != null && laatste.varroa >= VARROA_LET_OP_DREMPEL) return 'probleem';
+    if(varroaNiveau === 'let-op') return 'let-op';
     if(laatste.voedsel === 'weinig' || laatste.temperament === 'fel') return 'let-op';
     return 'goed';
   }
@@ -3274,10 +3291,6 @@
         if(insp.weer) tags += `<span class="tag">${weerIcoon(insp.weer.weerCode)} ${insp.weer.temperatuur}°C, ${insp.weer.omschrijving.toLowerCase()}</span>`;
         if(insp.honingkamers != null) tags += `<span class="tag">🍯 ${insp.honingkamers} honingkamer(s)</span>`;
         if(insp.temperament) tags += `<span class="tag">Temperament: ${insp.temperament}</span>`;
-        if(insp.varroa != null){
-          const varroaHoog = insp.varroa >= VARROA_LET_OP_DREMPEL;
-          tags += `<span class="tag ${varroaHoog ? 'roest' : ''}">Varroa: ${insp.varroa}</span>`;
-        }
         insp.gezondheid.forEach(g => {
           if(g !== 'geen') tags += `<span class="tag roest">${gezondheidLabel(g)}</span>`;
         });
@@ -3291,7 +3304,7 @@
           }
         }
 
-        const heeftIssue = insp.gezondheid.some(g => g !== 'geen') || (insp.varroa != null && insp.varroa >= VARROA_LET_OP_DREMPEL);
+        const heeftIssue = insp.gezondheid.some(g => g !== 'geen');
         const stipKleur = heeftIssue ? 'var(--roest)' : (insp.voedsel === 'weinig' ? 'var(--goud)' : 'var(--groen)');
 
         item.innerHTML = `
@@ -3351,7 +3364,6 @@
       broednest: broednestBol ? broednestBol.dataset.waarde : null,
       voedsel: voedselBtn ? voedselBtn.dataset.waarde : null,
       temperament: temperamentBtn ? temperamentBtn.dataset.waarde : null,
-      varroa: document.getElementById('input-varroa').value !== '' ? Number(document.getElementById('input-varroa').value) : null,
       gezondheid: gezondheid,
       moerwissel: moerwisselAan,
       moerwisselType: moerwisselAan ? moerwisselType : null,
@@ -3435,31 +3447,41 @@
 
   function renderJaartrend(volk){
     const sectie = document.getElementById('jaartrend-sectie');
-    // Groeperen per jaar
-    const perJaar = {};
-    volk.inspecties.forEach(i => {
-      const jaar = new Date(i.datum).getFullYear();
-      if(!perJaar[jaar]) perJaar[jaar] = { broednest: [], varroa: [] };
-      if(i.broednest) perJaar[jaar].broednest.push(Number(i.broednest));
-      if(i.varroa != null) perJaar[jaar].varroa.push(Number(i.varroa));
-    });
-    const jaren = Object.keys(perJaar).sort();
 
-    if(jaren.length < 2){
+    // Broednest per jaar (uit inspecties)
+    const broednestPerJaarMap = {};
+    volk.inspecties.forEach(i => {
+      if(!i.broednest) return;
+      const jaar = new Date(i.datum).getFullYear();
+      if(!broednestPerJaarMap[jaar]) broednestPerJaarMap[jaar] = [];
+      broednestPerJaarMap[jaar].push(Number(i.broednest));
+    });
+
+    // Varroa per jaar (uit de losse, genormaliseerde varroacontroles — mijten/dag)
+    const varroaPerJaarMap = {};
+    (volk.varroacontroles || []).forEach(c => {
+      const jaar = new Date(c.datum).getFullYear();
+      if(!varroaPerJaarMap[jaar]) varroaPerJaarMap[jaar] = [];
+      varroaPerJaarMap[jaar].push(c.gemiddeldePerDag);
+    });
+
+    const alleJaren = [...new Set([...Object.keys(broednestPerJaarMap), ...Object.keys(varroaPerJaarMap)])].sort();
+
+    if(alleJaren.length < 2){
       sectie.style.display = 'none';
       return;
     }
     sectie.style.display = 'block';
 
-    const gemiddelde = arr => arr.length ? arr.reduce((a,b) => a+b, 0) / arr.length : null;
-    const broednestPerJaar = jaren.map(j => gemiddelde(perJaar[j].broednest));
-    const varroaPerJaar = jaren.map(j => gemiddelde(perJaar[j].varroa));
+    const gemiddelde = arr => (arr && arr.length) ? arr.reduce((a,b) => a+b, 0) / arr.length : null;
+    const broednestPerJaar = alleJaren.map(j => gemiddelde(broednestPerJaarMap[j]));
+    const varroaPerJaar = alleJaren.map(j => gemiddelde(varroaPerJaarMap[j]));
 
     if(grafiekJaartrendBroednest) grafiekJaartrendBroednest.destroy();
     grafiekJaartrendBroednest = new Chart(document.getElementById('grafiek-jaartrend-broednest'), {
       type: 'line',
       data: {
-        labels: jaren,
+        labels: alleJaren,
         datasets: [{
           data: broednestPerJaar,
           borderColor: '#C6871F',
@@ -3481,7 +3503,7 @@
     grafiekJaartrendVarroa = new Chart(document.getElementById('grafiek-jaartrend-varroa'), {
       type: 'line',
       data: {
-        labels: jaren,
+        labels: alleJaren,
         datasets: [{
           data: varroaPerJaar,
           borderColor: '#B5541F',
@@ -3500,8 +3522,6 @@
     });
   }
 
-  let grafiekVarroa = null;
-
   function renderGrafieken(volk){
     const inspecties = volk.inspecties; // al gesorteerd op datum, oud naar nieuw
     const container = document.getElementById('grafieken-container');
@@ -3517,7 +3537,7 @@
     legeStaat.style.display = 'none';
 
     const labels = inspecties.map(i => new Date(i.datum).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' }));
-    const heeftIssue = i => (i.gezondheid && i.gezondheid.some(g => g !== 'geen')) || (i.varroa != null && i.varroa >= VARROA_LET_OP_DREMPEL);
+    const heeftIssue = i => i.gezondheid && i.gezondheid.some(g => g !== 'geen');
     const stipKleuren = inspecties.map(i => heeftIssue(i) ? '#B5541F' : '#C6871F');
 
     // Broednest-grafiek
@@ -3543,24 +3563,6 @@
         }]
       },
       options: grafiekOpties(1, 5, 1)
-    });
-
-    // Varroatelling-grafiek (staafdiagram, met rode staven boven de aandachtsgrens)
-    const varroaData = inspecties.map(i => i.varroa != null ? Number(i.varroa) : null);
-    const varroaKleuren = inspecties.map(i => (i.varroa != null && i.varroa >= VARROA_LET_OP_DREMPEL) ? '#B5541F' : '#E8A93A');
-    if(grafiekVarroa) grafiekVarroa.destroy();
-    grafiekVarroa = new Chart(document.getElementById('grafiek-varroa'), {
-      type: 'bar',
-      data: {
-        labels: labels,
-        datasets: [{
-          data: varroaData,
-          backgroundColor: varroaKleuren,
-          borderRadius: 4,
-          maxBarThickness: 28
-        }]
-      },
-      options: grafiekOpties(0, undefined, undefined)
     });
   }
 
