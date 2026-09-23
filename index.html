@@ -812,7 +812,10 @@
       <div id="weer-uren-rij" class="weer-uren-rij"></div>
     </div>
 
-    <button class="knop-secundair" onclick="toonSuggestieScherm()" style="margin:16px 20px 0; width:calc(100% - 40px);">💡 Suggestie of verbetering doorgeven</button>
+    <div style="display:flex; gap:8px; margin:16px 20px 0;">
+      <button class="knop-secundair" onclick="toonUpdatesScherm()" style="flex:1; position:relative;">📋 Wat is er nieuw?<span id="updates-badge" style="display:none; position:absolute; top:-5px; right:-5px; width:12px; height:12px; border-radius:50%; background:var(--roest); border:2px solid var(--creme);"></span></button>
+      <button class="knop-secundair" onclick="toonSuggestieScherm()" style="flex:1;">💡 Suggestie doorgeven</button>
+    </div>
 
     <div class="fab">
       <button class="knop-primair" onclick="toonNieuwVolkScherm()">+ Nieuw volk</button>
@@ -1005,6 +1008,10 @@
         <div id="varroa-controle-waarschuwing" class="alarm-banner" style="display:none; margin-bottom:14px;">
           <span class="icoon">⚠️</span>
           <span id="varroa-controle-waarschuwing-tekst"></span>
+        </div>
+        <div id="varroa-behandeladvies" class="alarm-banner" style="display:none; background:var(--creme-dark); border-color:var(--raat-tan); color:var(--bruin-zacht); margin-bottom:14px;">
+          <span class="icoon">🧪</span>
+          <div id="varroa-behandeladvies-tekst" style="flex:1; line-height:1.5;"></div>
         </div>
 
         <div class="veld">
@@ -1343,6 +1350,70 @@
     </div>
   </div>
 
+  <!-- SCHERM 10: Wat is er nieuw -->
+  <div id="scherm-updates" class="screen">
+    <div class="topbalk">
+      <button class="terug-btn" onclick="toonScherm('scherm-overzicht')">←</button>
+      <h2>Wat is er nieuw?</h2>
+    </div>
+    <div style="padding:20px;">
+      <div class="agenda-taak-item">
+        <div class="agenda-taak-info">
+          <div class="agenda-taak-datum">🧪 Behandeladvies bij varroa</div>
+          <div class="agenda-taak-notitie" style="font-style:normal;">Bij een gevarenzone krijg je nu concreet advies (mierenzuur/Formic Pro, Thymovar of oxaalzuur, afhankelijk van het seizoen), inclusief een check op honingkamers en de 14-daagse weersvoorspelling voor een geschikte behandeldag.</div>
+        </div>
+      </div>
+      <div class="agenda-taak-item">
+        <div class="agenda-taak-info">
+          <div class="agenda-taak-datum">🐜 Losse varroacontrole</div>
+          <div class="agenda-taak-notitie" style="font-style:normal;">Varroa bijhouden staat nu los van inspecties: vul mijten + aantal dagen in, en de app berekent automatisch het gemiddelde per dag — met seizoensafhankelijke grenzen, zodat een controle na 3 dagen eerlijk te vergelijken is met een na 14 dagen.</div>
+        </div>
+      </div>
+      <div class="agenda-taak-item">
+        <div class="agenda-taak-info">
+          <div class="agenda-taak-datum">📦 Geïllustreerde kastjes</div>
+          <div class="agenda-taak-notitie" style="font-style:normal;">Elk volk op het hoofdscherm toont nu een kastje opgebouwd uit de werkelijke samenstelling (broedkamers/honingkamers, en kleiner bij een zwermkast/6-ramer). Tik op het kastje om de samenstelling direct aan te passen.</div>
+        </div>
+      </div>
+      <div class="agenda-taak-item">
+        <div class="agenda-taak-info">
+          <div class="agenda-taak-datum">🌙 Donkere modus & ⚖️ Volken vergelijken</div>
+          <div class="agenda-taak-notitie" style="font-style:normal;">Een donker kleurenschema (knop rechtsboven), en een scherm om broednest, varroa, voedsel, temperament en meer van meerdere volken naast elkaar te vergelijken.</div>
+        </div>
+      </div>
+      <div class="agenda-taak-item">
+        <div class="agenda-taak-info">
+          <div class="agenda-taak-datum">🍯 Honingoogst & 🍂 Inwinteren</div>
+          <div class="agenda-taak-notitie" style="font-style:normal;">Houd per volk je honingoogst bij (kg per jaar), en bereken tijdens het inwinteren automatisch hoeveel voer (in kg of 3:2-suikerwater) je nog moet bijvoeren om je streefgewicht te halen.</div>
+        </div>
+      </div>
+      <div class="agenda-taak-item">
+        <div class="agenda-taak-info">
+          <div class="agenda-taak-datum">📊 Dashboard, 🔍 Zoeken & 🖨️ Rapport</div>
+          <div class="agenda-taak-notitie" style="font-style:normal;">Een jaaroverzicht met kerncijfers en een weer-gedrag-verband, doorzoekbare notities, en een printbaar rapport per volk.</div>
+        </div>
+      </div>
+      <div class="agenda-taak-item">
+        <div class="agenda-taak-info">
+          <div class="agenda-taak-datum">📸 Foto's & 💾 Back-up</div>
+          <div class="agenda-taak-notitie" style="font-style:normal;">Voeg foto's toe aan een inspectie, en exporteer/herstel al je gegevens als back-upbestand.</div>
+        </div>
+      </div>
+      <div class="agenda-taak-item">
+        <div class="agenda-taak-info">
+          <div class="agenda-taak-datum">🌤️ Weer & 🗺️ Kaart & 📅 Agenda</div>
+          <div class="agenda-taak-notitie" style="font-style:normal;">Automatisch weer bij elke inspectie (met een "goed werkweer"-stoplicht), een kaart met kastlocaties, en een agenda met geplande taken.</div>
+        </div>
+      </div>
+      <div class="agenda-taak-item">
+        <div class="agenda-taak-info">
+          <div class="agenda-taak-datum">🐝 Zwermalarm & 📱 Installeerbare app</div>
+          <div class="agenda-taak-notitie" style="font-style:normal;">Een waarschuwing bij zwermneiging zonder vervolginspectie, een seizoensreminder, en ImkerApp is nu te installeren als een echte app op je telefoon.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- SCHERM 8: Suggestie / verbetering -->
   <div id="scherm-suggestie" class="screen">
     <div class="topbalk">
@@ -1629,6 +1700,23 @@
 
   // ===== Zoeken =====
   // ===== Suggestie / verbetering doorgeven (via WhatsApp) =====
+  // ===== Wat is er nieuw =====
+  // Dit nummer hoog ik met de hand op zodra er een nieuwe regel aan het updatescherm wordt
+  // toegevoegd — zo weet de app of iemand de nieuwste update al heeft gezien.
+  const HUIDIGE_UPDATE_VERSIE = 2;
+  const GEZIENE_UPDATE_SLEUTEL = 'bijenapp_geziene_update_versie';
+
+  function checkOngezieneUpdate(){
+    const gezienVersie = Number(localStorage.getItem(GEZIENE_UPDATE_SLEUTEL) || 0);
+    document.getElementById('updates-badge').style.display = gezienVersie < HUIDIGE_UPDATE_VERSIE ? 'block' : 'none';
+  }
+
+  function toonUpdatesScherm(){
+    localStorage.setItem(GEZIENE_UPDATE_SLEUTEL, HUIDIGE_UPDATE_VERSIE);
+    document.getElementById('updates-badge').style.display = 'none';
+    toonScherm('scherm-updates');
+  }
+
   function toonSuggestieScherm(){
     toonScherm('scherm-suggestie');
   }
@@ -2881,6 +2969,92 @@
     return { niveau: 'goed', info };
   }
 
+  // Behandeladvies per periode van het jaar. Gebaseerd op algemene, publiek beschikbare
+  // NL/BE-imkerrichtlijnen (WUR, NBV, Imkerpedia e.d.) — geen vervanging voor de bijsluiter
+  // van het toegelaten middel dat je gebruikt (bijv. Oxuvar, Formic Pro), die leidend blijft
+  // voor de exacte dosering.
+  function bepaalBehandelAdvies(datumStr){
+    const maand = new Date(datumStr).getMonth() + 1;
+    if(maand >= 1 && maand <= 3){
+      return {
+        type: 'mierenzuur',
+        tempMin: 14, tempMax: 30,
+        tekst: 'Ongebruikelijk vroeg voor een gevarenzone. Check eerst of het volk nog broedloos is. Is dat zo, dan kan een eenmalige oxaalzuurbehandeling (bijv. Oxuvar 5,7%, druppelmethode, geschikt bij ongeveer -5 tot +5°C) alsnog werken. Heeft het volk alweer broed, dan is een zuurbehandeling minder effectief — overleg met je bijenvereniging over de beste vervolgstap.'
+      };
+    }
+    if(maand >= 4 && maand <= 6){
+      return {
+        type: 'mierenzuur',
+        tempMin: 10, tempMax: 29.5,
+        tekst: 'Het volk heeft nu broed — een mierenzuurbehandeling werkt dan ook door in gesloten broedcellen. Opties: mierenzuur via een verdamper (bijv. Liebig, ca. 15–25°C), Formic Pro-strips (breder bereik, 10–29,5°C, 7–10 dagen per toepassing, niet geschikt voor kleine volken onder ca. 10.000 bijen), of Thymovar/thymol (bij voorkeur 20–25°C, langzamer: 6–8 weken in twee reeksen). Bij Formic Pro en Thymovar moeten alle honingkamers er sowieso af. Overweeg daarnaast het uitsnijden van darrenbroed als extra, mijtenreducerende maatregel.'
+      };
+    }
+    if(maand >= 7 && maand <= 8){
+      return {
+        type: 'mierenzuur',
+        tempMin: 10, tempMax: 29.5,
+        tekst: 'Typisch moment voor de eerste behandeling, direct na de zomerhoningoogst en vóór de heidedracht. Opties: mierenzuur via een verdamper (ca. 15–25°C), Formic Pro-strips (breder bereik, 10–29,5°C, 7–10 dagen, eenvoudig in gebruik), of Thymovar/thymol (bij voorkeur 20–25°C, 6–8 weken in twee reeksen). Bij Formic Pro en Thymovar moeten alle honingkamers er sowieso af; bij een verdamper mag je alleen niet oogsten uit een honingkamer die tijdens de behandeling op de kast heeft gestaan.'
+      };
+    }
+    if(maand >= 9 && maand <= 10){
+      return {
+        type: 'mierenzuur',
+        tempMin: 10, tempMax: 29.5,
+        tekst: 'Nabehandeling nodig. Een mierenzuurbehandeling via verdamper in deze periode moet uiterlijk half september zijn afgerond. Formic Pro (10–29,5°C, 7–10 dagen) kan door zijn bredere temperatuurbereik ook nog iets later; Thymovar kan ook, mits nog boven de 15°C, maar duurt met 6–8 weken langer. Is het al te laat of te koud voor alle drie, dan is de winterbehandeling met oxaalzuur (december) de volgende kans.'
+      };
+    }
+    return {
+      type: 'oxaalzuur',
+      tempMin: -5, tempMax: 5,
+      tekst: 'Dit is het moment voor de winterbehandeling met oxaalzuur, bijv. het kant-en-klare middel Oxuvar 5,7% (druppelmethode) — maar alleen als het volk broedloos is (meestal het geval eind december, bij een strak zittende wintertros). Mag maar één keer per broedloze periode worden toegepast. Formic Pro en Thymovar zijn hier geen optie: die middelen hebben juist broed (en dus warmte in de kast) nodig om goed te werken.'
+    };
+  }
+
+  async function toonBehandelAdvies(volk, controle){
+    const adviesEl = document.getElementById('varroa-behandeladvies');
+    const adviesTekstEl = document.getElementById('varroa-behandeladvies-tekst');
+    const status = bepaalVarroaStatus(controle.gemiddeldePerDag, controle.datum);
+
+    if(status.niveau !== 'gevarenzone'){
+      adviesEl.style.display = 'none';
+      return;
+    }
+
+    const advies = bepaalBehandelAdvies(controle.datum);
+    let html = `<strong>Advies:</strong> ${advies.tekst}`;
+
+    if(advies.type === 'mierenzuur' && volk.aantalHoningkamers != null && volk.aantalHoningkamers > 0){
+      html += `<br><br>⚠️ Er staat/staan ${volk.aantalHoningkamers} honingkamer(s) op dit volk. Bij mierenzuur via een verdamper mag je alleen niet oogsten uit een honingkamer die tijdens de behandeling op de kast heeft gestaan; kies je voor Formic Pro of Thymovar, dan moeten sowieso alle honingkamers er volledig af.`;
+    }
+    html += `<br><br><span style="font-size:0.85em;">Volg voor de exacte dosering altijd de bijsluiter van het toegelaten middel dat je gebruikt.</span>`;
+
+    adviesTekstEl.innerHTML = html;
+    adviesEl.style.display = 'flex';
+
+    if(volk.lat != null && volk.lng != null){
+      try{
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${volk.lat}&longitude=${volk.lng}&daily=temperature_2m_max&forecast_days=14&timezone=auto`;
+        const response = await fetch(url);
+        const data = await response.json();
+        const geschikteDagen = data.daily.time
+          .map((tijd, i) => ({ datum: tijd, max: data.daily.temperature_2m_max[i] }))
+          .filter(dag => dag.max >= advies.tempMin && dag.max <= advies.tempMax);
+
+        let weerHtml;
+        if(geschikteDagen.length > 0){
+          weerHtml = `🌤️ Komende 14 dagen: <strong>${geschikteDagen.length} dag(en)</strong> met geschikte temperatuur (${advies.tempMin}–${advies.tempMax}°C), eerstvolgende op <strong>${formatDatum(geschikteDagen[0].datum)}</strong>.`;
+        } else {
+          weerHtml = `🌤️ Komende 14 dagen lijkt er volgens de huidige voorspelling geen dag met geschikte temperatuur (${advies.tempMin}–${advies.tempMax}°C) te zijn — check dit dichter bij de tijd opnieuw.`;
+        }
+        adviesTekstEl.innerHTML = html + `<br><br>${weerHtml}`;
+      } catch(err){
+        // Geen internetverbinding of weerservice niet bereikbaar — advies zonder voorspelling blijft gewoon staan
+      }
+    } else {
+      adviesTekstEl.innerHTML = html + `<br><br>🌤️ Stel een locatie op de kaart in bij dit volk om ook de 14-daagse weersvoorspelling hier te zien.`;
+    }
+  }
+
   function renderVarroacontrole(volk){
     const controles = volk.varroacontroles || [];
     const lijstEl = document.getElementById('varroa-lijst');
@@ -2893,6 +3067,7 @@
       totalenEl.textContent = 'Nog geen controles geregistreerd.';
       geenEl.style.display = 'block';
       waarschuwingEl.style.display = 'none';
+      document.getElementById('varroa-behandeladvies').style.display = 'none';
     } else {
       const laatste = controles[controles.length - 1];
       totalenEl.innerHTML = `Laatste controle: <strong>${laatste.gemiddeldePerDag.toFixed(1)} mijten/dag</strong> (${formatDatum(laatste.datum)})`;
@@ -2920,6 +3095,7 @@
       } else {
         waarschuwingEl.style.display = 'none';
       }
+      toonBehandelAdvies(volk, laatste);
     }
 
     [...controles].reverse().forEach(controle => {
@@ -3886,6 +4062,7 @@
   renderOverzicht();
   initHeaderWeer();
   checkTakenVandaag();
+  checkOngezieneUpdate();
 </script>
 </body>
 </html>
